@@ -1,0 +1,151 @@
+==========================================
+   INSTRUCCIONES PARA EJECUTAR LA APLICACIÓN
+   Sistema de Diagnóstico PCOS por IA
+==========================================
+
+📋 PRERREQUISITOS
+==================
+1. Node.js (versión 16 o superior)
+   - Descargar desde: https://nodejs.org/
+   - Verificar instalación: node --version
+
+2. npm (viene con Node.js)
+   - Verificar instalación: npm --version
+
+3. Tu API Backend ejecutándose en:
+   - URL: http://127.0.0.1:8000
+   - Endpoint principal: /api/v1/image_files/upload
+
+🚀 PASOS PARA EJECUTAR
+======================
+
+1. ABRIR TERMINAL
+   - Navegar al directorio del proyecto:
+     cd /home/aline/Documents/CODE/ESPOL/IA/OvaDetect
+
+2. INSTALAR DEPENDENCIAS (solo la primera vez)
+   npm install
+
+3. EJECUTAR LA APLICACIÓN
+   npm run dev
+
+4. ABRIR EN NAVEGADOR
+   - URL: http://localhost:5173
+   - Se abrirá automáticamente en tu navegador predeterminado
+
+📡 CONFIGURACIÓN DE API
+=======================
+
+IMPORTANTE: Tu backend debe estar corriendo ANTES de usar la aplicación.
+
+Backend requerido:
+- URL: http://127.0.0.1:8000
+- Endpoint: POST /api/v1/image_files/upload
+- Debe aceptar archivos con key "files"
+- Debe procesar imágenes con IA automáticamente
+
+Si tu API está en otra URL, editar:
+- Archivo: src/services/api.ts
+- Línea 5: baseURL: '/api/v1'
+- Cambiar por: baseURL: 'http://tu-nueva-url/api/v1'
+
+🌐 CONFIGURACIÓN CORS (si hay problemas)
+========================================
+
+Si aparecen errores de CORS, agregar en tu backend FastAPI:
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+💡 CÓMO USAR LA APLICACIÓN
+==========================
+
+1. CARGAR IMÁGENES:
+   - Ir a "Cargar Imágenes"
+   - Arrastrar archivos o hacer clic en "Seleccionar Archivos"
+   - Ver las imágenes cargadas en la interfaz
+
+2. ANALIZAR:
+   - Seleccionar las imágenes que deseas analizar
+   - Hacer clic en "Analizar Imágenes"
+   - Esperar el procesamiento (tu IA procesará automáticamente)
+
+3. VER RESULTADOS:
+   - Automáticamente te redirige a "Resultados"
+   - Ver probabilidades PCOS y niveles de confianza
+   - Hacer clic en "Ver Detalles" para más información
+   - Descargar reportes JSON con el botón de descarga
+
+📁 TIPOS DE ARCHIVOS SOPORTADOS
+===============================
+- JPEG (.jpg, .jpeg)
+- PNG (.png)
+- DICOM (.dicom)
+- Tamaño máximo: 10MB por archivo
+
+🔧 COMANDOS ÚTILES
+==================
+
+Desarrollo:
+- npm run dev          # Ejecutar en modo desarrollo
+- npm run build        # Construir para producción
+- npm run preview      # Vista previa de la build
+
+Solución de problemas:
+- npm install          # Reinstalar dependencias
+- rm -rf node_modules  # Limpiar dependencias
+- npm cache clean --force  # Limpiar caché npm
+
+🐛 SOLUCIÓN DE PROBLEMAS COMUNES
+=================================
+
+1. ERROR "CORS":
+   - Configurar CORS en tu backend (ver sección CORS arriba)
+   - O usar el proxy configurado en vite.config.ts
+
+2. ERROR "Cannot connect to API":
+   - Verificar que tu backend esté corriendo en http://127.0.0.1:8000
+   - Probar el endpoint manualmente: curl -X POST http://127.0.0.1:8000/api/v1/image_files/upload
+
+3. ERROR "Port 5173 already in use":
+   - Cambiar puerto: npm run dev -- --port 3000
+   - O cerrar otras aplicaciones usando el puerto
+
+4. IMÁGENES NO SE MUESTRAN:
+   - Verificar que el formato sea soportado
+   - Verificar que el tamaño sea menor a 10MB
+
+📞 ESTRUCTURA DE ARCHIVOS CLAVE
+===============================
+src/
+├── components/
+│   ├── UploadImages.vue    # Subida de imágenes
+│   ├── Results.vue         # Visualización de resultados
+│   └── AboutView.vue       # Información de la app
+├── services/
+│   └── api.ts             # Configuración de API
+├── stores/
+│   └── images.ts          # Estado global de imágenes
+└── types/
+    └── index.ts           # Tipos TypeScript
+
+🎯 FLUJO COMPLETO DE LA APLICACIÓN
+==================================
+
+1. Usuario carga imágenes → UploadImages.vue
+2. Usuario hace clic "Analizar" → Envía a tu API
+3. Tu API procesa con IA → Devuelve resultados
+4. Aplicación muestra resultados → Results.vue
+5. Usuario puede descargar reportes → Archivo JSON
+
+==========================================
+¡LISTO! Tu aplicación debería estar corriendo
+en http://localhost:5173
+==========================================
