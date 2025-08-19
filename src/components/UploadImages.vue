@@ -271,9 +271,10 @@ function handleDrop(event: DragEvent) {
 async function handleFiles(files: File[]) {
   for (const file of files) {
     try {
-      await imagesStore.addImage(file)
+      // Solo agregar al store para mostrar, no subir todavía
+      imagesStore.addFileToStore(file)
     } catch (error) {
-      console.error('Error uploading file:', error)
+      console.error('Error adding file to store:', error)
     }
   }
 }

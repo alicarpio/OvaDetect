@@ -1,13 +1,12 @@
-import type { AnalysisResult, ImageFile } from '@/types'
+import type { AnalysisResult, ImageFile, ImageFileRecord } from '@/types'
 
 // Configuración de la API
 const API_CONFIG = {
-  baseURL: 'http://localhost:3000/api', // Cambia esto por tu URL real cuando tengas la API
+  baseURL: '/api/v1', // Usando proxy de Vite
   timeout: 30000, // 30 segundos timeout
   headers: {
-    'Content-Type': 'application/json',
-    // Agrega aquí headers de autenticación cuando los necesites
-    // 'Authorization': 'Bearer your-token'
+    // No incluir Content-Type aquí para FormData
+    // 'Authorization': 'Bearer your-token' // Agrega si necesitas auth
   }
 }
 
@@ -18,6 +17,8 @@ interface ApiResponse<T> {
   message?: string
   error?: string
 }
+
+// Tipos específicos para tu API (usando ImageFileRecord de types/index.ts)
 
 interface AnalysisRequest {
   imageId: string
@@ -53,7 +54,7 @@ class ApiService {
   private async request<T>(
     endpoint: string, 
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
     
     const config: RequestInit = {
@@ -65,12 +66,14 @@ class ApiService {
     }
 
     try {
-      // En desarrollo, simulamos la llamada a la API
-      if (this.isDevelopmentMode()) {
+      // En desarrollo, simulamos solo los endpoints que no existen
+      if (this.isDevelopmentMode() && !endpoint.includes('/image_files/upload')) {
         return this.simulateApiCall<T>(endpoint, options)
       }
 
-      // Llamada real a la API (cuando esté disponible)
+      // Llamada real a la API
+      console.log(`📡 Llamando API real: ${url}`)
+      
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
@@ -82,40 +85,44 @@ class ApiService {
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
       const data = await response.json()
+      console.log(`✅ Respuesta de API:`, data)
+      
       return data
 
     } catch (error) {
-      console.error('API request failed:', error)
+      console.error('❌ Error en API:', error)
       throw new Error(error instanceof Error ? error.message : 'Error desconocido en la API')
     }
   }
 
-  // Detectar si estamos en modo desarrollo
+  // Detectar si estamos en modo desarrollo (para endpoints no implementados)
   private isDevelopmentMode(): boolean {
-    return import.meta.env.DEV || !this.baseURL.includes('http')
+    // Solo simular endpoints de análisis, usar API real para uploads
+    return false
   }
 
-  // Simulador de API para desarrollo
+  // Simulador de API para desarrollo (solo para análisis)
   private async simulateApiCall<T>(
     endpoint: string, 
     options: RequestInit
-  ): Promise<ApiResponse<T>> {
-    console.log(` Simulando llamada API: ${endpoint}`)
+  ): Promise<T> {
+    console.log(`🔄 Simulando llamada API: ${endpoint}`)
     
     // Simular tiempo de respuesta de la API
     const delay = 2000 + Math.random() * 3000 // 2-5 segundos
     await new Promise(resolve => setTimeout(resolve, delay))
 
     if (endpoint === '/analyze') {
-      return this.simulateAnalysisResponse() as ApiResponse<T>
+      return this.simulateAnalysisResponse() as T
     }
 
     if (endpoint === '/analyze/batch') {
-      return this.simulateBatchAnalysisResponse(options) as ApiResponse<T>
+      return this.simulateBatchAnalysisResponse(options) as T
     }
 
     throw new Error(`Endpoint no simulado: ${endpoint}`)
@@ -123,7 +130,6 @@ class ApiService {
 
   // Simular respuesta de análisis individual
   private simulateAnalysisResponse(): ApiResponse<AnalysisApiResponse> {
-    // Simular diferentes escenarios basados en probabilidades
     const scenarios = [
       {
         probability: 0.3,
@@ -174,7 +180,6 @@ class ApiService {
       }
     ]
 
-    // Seleccionar escenario basado en probabilidades
     const random = Math.random()
     let cumulativeProbability = 0
     let selectedScenario = scenarios[0]
@@ -189,7 +194,7 @@ class ApiService {
 
     const result: AnalysisApiResponse = {
       id: crypto.randomUUID(),
-      imageId: 'temp-id', // Se reemplazará por el ID real
+      imageId: 'temp-id',
       pcosProbability: Math.round(selectedScenario.pcosProbability() * 10) / 10,
       confidence: Math.round(selectedScenario.confidence() * 10) / 10,
       findings: selectedScenario.findings,
@@ -197,8 +202,6 @@ class ApiService {
       analyzedAt: new Date().toISOString(),
       status: 'completed'
     }
-
-    console.log(' Resultado simulado:', result)
 
     return {
       success: true,
@@ -230,11 +233,51 @@ class ApiService {
   // API ENDPOINTS
 
   /**
+   * Subir múltiples archivos usando tu endpoint real
+   */
+  async uploadFiles(files: File[]): Promise<ImageFileRecord[]> {
+    console.log(`📤 Subiendo ${files.length} archivos a API real`)
+    
+    const formData = new FormData()
+    
+    // Agregar todos los archivos con la key "files"
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+
+    try {
+      const response = await this.request<ImageFileRecord[]>('/image_files/upload', {
+        method: 'POST',
+        body: formData,
+        headers: {} // No establecer Content-Type para FormData
+      })
+
+      console.log(`✅ ${files.length} archivos subidos exitosamente:`, response)
+      return response
+
+    } catch (error) {
+      console.error('❌ Error al subir archivos:', error)
+      throw new Error(`Error al subir archivos: ${error}`)
+    }
+  }
+
+  /**
+   * Subir un solo archivo (wrapper para compatibilidad)
+   */
+  async uploadFile(file: File): Promise<ImageFileRecord> {
+    const results = await this.uploadFiles([file])
+    return results[0]
+  }
+
+  /**
    * Analizar una sola imagen
    */
   async analyzeImage(request: AnalysisRequest): Promise<AnalysisResult> {
-    const response = await this.request<AnalysisApiResponse>('/analyze', {
+    const response = await this.request<ApiResponse<AnalysisApiResponse>>('/analyze', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(request)
     })
 
@@ -242,7 +285,6 @@ class ApiService {
       throw new Error(response.error || 'Error en el análisis de imagen')
     }
 
-    // Convertir respuesta de API a formato interno
     return {
       id: response.data.id,
       imageId: response.data.imageId,
@@ -260,15 +302,53 @@ class ApiService {
    * Analizar múltiples imágenes en lote
    */
   async analyzeImages(images: ImageFile[]): Promise<AnalysisResult[]> {
-    const requests = images.map(image => ({
+    // Si las imágenes son blob URLs locales, primero las subimos
+    const imagesToUpload: File[] = []
+    const uploadedImages: ImageFile[] = []
+
+    for (const image of images) {
+      if (image.url.startsWith('blob:')) {
+        // Convertir blob URL a File para subir
+        const file = await this.urlToFile(image.url, image.name, image.type)
+        imagesToUpload.push(file)
+      } else {
+        uploadedImages.push(image)
+      }
+    }
+
+    // Subir archivos si hay algunos locales
+    if (imagesToUpload.length > 0) {
+      console.log(`📤 Subiendo ${imagesToUpload.length} archivos antes del análisis`)
+      const uploadedRecords = await this.uploadFiles(imagesToUpload)
+      
+      // Convertir registros subidos a formato ImageFile
+      uploadedRecords.forEach((record, index) => {
+        uploadedImages.push({
+          id: record.id.toString(),
+          name: record.original_filename || record.name || `imagen_${index}`,
+          size: record.file_size || record.size || 0,
+          type: record.mime_type || record.type || 'application/octet-stream',
+          lastModified: Date.now(),
+          url: record.file_path || record.url || '', // o construir URL completa
+          uploadedAt: record.created_at ? new Date(record.created_at) : new Date(),
+          status: 'uploaded' as const
+        })
+      })
+    }
+
+    // Ahora analizar todas las imágenes
+    const requests = uploadedImages.map(image => ({
       imageId: image.id,
       imageName: image.name,
       imageSize: image.size,
       imageType: image.type
     }))
 
-    const response = await this.request<AnalysisApiResponse[]>('/analyze/batch', {
+    const response = await this.request<ApiResponse<AnalysisApiResponse[]>>('/analyze/batch', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ images: requests })
     })
 
@@ -276,7 +356,6 @@ class ApiService {
       throw new Error(response.error || 'Error en el análisis por lotes')
     }
 
-    // Convertir respuestas de API a formato interno
     return response.data.map(apiResult => ({
       id: apiResult.id,
       imageId: apiResult.imageId,
@@ -291,39 +370,23 @@ class ApiService {
   }
 
   /**
-   * Subir imagen (si tu API requiere subir archivos por separado)
+   * Convertir blob URL a File
    */
-  async uploadImage(file: File): Promise<{ imageId: string; url: string }> {
-    const formData = new FormData()
-    formData.append('image', file)
-
-    // Para desarrollo, simulamos la subida
-    if (this.isDevelopmentMode()) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      return {
-        imageId: crypto.randomUUID(),
-        url: URL.createObjectURL(file)
-      }
-    }
-
-    const response = await this.request<{ imageId: string; url: string }>('/upload', {
-      method: 'POST',
-      body: formData,
-      headers: {} // No establecer Content-Type para FormData
-    })
-
-    if (!response.success) {
-      throw new Error(response.error || 'Error al subir imagen')
-    }
-
-    return response.data
+  private async urlToFile(url: string, filename: string, mimeType: string): Promise<File> {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new File([blob], filename, { type: mimeType })
   }
 
   /**
    * Obtener resultado de análisis por ID
    */
   async getAnalysisResult(resultId: string): Promise<AnalysisResult> {
-    const response = await this.request<AnalysisApiResponse>(`/analysis/${resultId}`)
+    const response = await this.request<ApiResponse<AnalysisApiResponse>>(`/analysis/${resultId}`, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
 
     if (!response.success) {
       throw new Error(response.error || 'Error al obtener resultado')
@@ -343,7 +406,7 @@ class ApiService {
   }
 
   /**
-   * Configurar URL base de la API (útil para cambiar entre desarrollo y producción)
+   * Configurar URL base de la API
    */
   setBaseURL(url: string): void {
     this.baseURL = url
@@ -357,8 +420,77 @@ class ApiService {
   }
 }
 
+// Funciones adicionales para el manejo de reportes
+async function getAnalysisResultByImageId(imageId: string): Promise<any> {
+  try {
+    console.log(`📡 Obteniendo análisis para imagen ID: ${imageId}`)
+    const response = await fetch(`${API_CONFIG.baseURL}/analysis_results/${imageId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(API_CONFIG.timeout)
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    console.log(`✅ Datos de análisis obtenidos:`, data)
+    return data
+
+  } catch (error) {
+    console.error('❌ Error obteniendo resultado de análisis:', error)
+    throw new Error(error instanceof Error ? error.message : 'Error desconocido al obtener análisis')
+  }
+}
+
+async function downloadAnalysisReport(imageId: string): Promise<Blob> {
+  try {
+    console.log(`📄 Generando reporte para imagen ID: ${imageId}`)
+    
+    // Obtener los datos del análisis desde tu API
+    const analysisData = await getAnalysisResultByImageId(imageId)
+    
+    // Crear reporte estructurado
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      reportTitle: 'Reporte de Análisis PCOS',
+      imageId: imageId,
+      analysis: analysisData,
+      summary: {
+        probability: `${(analysisData.pcos_probability * 100).toFixed(1)}%`,
+        confidence: `${(analysisData.confidence * 100).toFixed(1)}%`,
+        classification: analysisData.pcos_probability > 0.5 ? 'Alto Riesgo PCOS' : 'Bajo Riesgo PCOS',
+        recommendations: analysisData.recommendations || []
+      },
+      metadata: {
+        generatedBy: 'Sistema de Diagnóstico PCOS por IA',
+        version: '1.0.0'
+      }
+    }
+    
+    // Convertir a JSON para descarga
+    const jsonBlob = new Blob(
+      [JSON.stringify(reportData, null, 2)], 
+      { type: 'application/json' }
+    )
+    
+    console.log(`✅ Reporte generado para imagen ${imageId}`)
+    return jsonBlob
+
+  } catch (error) {
+    console.error('❌ Error generando reporte:', error)
+    throw new Error(error instanceof Error ? error.message : 'Error desconocido al generar reporte')
+  }
+}
+
 // Instancia singleton del servicio API
 export const apiService = new ApiService()
 
+// Exportar funciones de reportes
+export { getAnalysisResultByImageId, downloadAnalysisReport }
+
 // Exportar tipos para uso en otros archivos
-export type { AnalysisRequest, AnalysisApiResponse, ApiResponse }
+export type { AnalysisRequest, AnalysisApiResponse, ApiResponse, ImageFileRecord }

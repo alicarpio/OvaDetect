@@ -37,10 +37,18 @@
           >
             <v-card-text class="pa-6">
               <!-- Image Name with Status -->
-              <div class="d-flex align-center justify-space-between mb-4">
-                <span class="text-body-1 font-weight-medium text-grey-darken-4">
-                  {{ getImageName(result.imageId) }}
-                </span>
+              <div class="d-flex align-center justify-space-between mb-2">
+                <div>
+                  <div class="text-body-1 font-weight-medium text-grey-darken-4">
+                    {{ getImageName(result.imageId) }}
+                  </div>
+                  <!-- Información adicional del archivo -->
+                  <div class="text-caption text-medium-emphasis mt-1">
+                    {{ formatFileSize(getImageById(result.imageId)?.size || 0) }} • 
+                    {{ getImageDimensions(result.imageId) }} •
+                    Procesado {{ formatRelativeTime(result.analyzedAt) }}
+                  </div>
+                </div>
                 <div v-if="result.status === 'completed'" class="d-flex align-center">
                   <v-icon size="16" color="success" class="me-2">mdi-check-circle</v-icon>
                   <span class="text-caption text-success font-weight-medium">
@@ -61,6 +69,9 @@
                 </div>
               </div>
 
+              <!-- Divisor visual -->
+              <v-divider class="my-4"></v-divider>
+
               <!-- Probability Section (only for completed) -->
               <div v-if="result.status === 'completed'">
                 <div class="d-flex justify-space-between align-center mb-2">
@@ -73,6 +84,34 @@
                   >
                     {{ result.pcosProbability.toFixed(1) }}%
                   </span>
+                </div>
+                
+                <!-- Nivel de Confianza -->
+                <div class="d-flex justify-space-between align-center mb-2">
+                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
+                    Confianza del Modelo
+                  </span>
+                  <v-chip 
+                    :color="getConfidenceColor(result.confidence)" 
+                    size="small" 
+                    variant="flat"
+                  >
+                    {{ result.confidence.toFixed(1) }}%
+                  </v-chip>
+                </div>
+                
+                <!-- Clasificación -->
+                <div class="d-flex justify-space-between align-center mb-3">
+                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
+                    Clasificación
+                  </span>
+                  <v-chip 
+                    :color="result.pcosProbability > 50 ? 'error' : 'success'" 
+                    size="small" 
+                    variant="tonal"
+                  >
+                    {{ getClassification(result) }}
+                  </v-chip>
                 </div>
                 
                 <v-progress-linear
@@ -217,63 +256,28 @@
               <div class="text-center">
                 <v-progress-circular
                   :model-value="selectedResult.confidence"
-                  color="success"
+                  :color="getConfidenceColor(selectedResult.confidence)"
                   size="80"
                   width="8"
                 >
                   <span class="text-h6 font-weight-bold">
-                    {{ selectedResult.confidence.toFixed(0) }}%
+                    {{ selectedResult.confidence.toFixed(1) }}%
                   </span>
                 </v-progress-circular>
-                <p class="text-caption mt-2">Confianza</p>
+                <p class="text-caption mt-2">
+                  Confianza del Modelo
+                  <v-chip 
+                    :color="getConfidenceColor(selectedResult.confidence)" 
+                    size="x-small" 
+                    variant="flat"
+                    class="ml-2"
+                  >
+                    {{ getConfidenceLevel(selectedResult.confidence) }}
+                  </v-chip>
+                </p>
               </div>
             </v-col>
           </v-row>
-
-          <!-- Findings -->
-          <v-expansion-panels variant="accordion" class="mb-4">
-            <v-expansion-panel>
-              <v-expansion-panel-title>
-                <v-icon start>mdi-magnify</v-icon>
-                Hallazgos Detectados
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <v-list density="compact">
-                  <v-list-item
-                    v-for="finding in selectedResult.findings"
-                    :key="finding"
-                    prepend-icon="mdi-check-circle"
-                    color="success"
-                  >
-                    <v-list-item-title class="text-body-2">
-                      {{ finding }}
-                    </v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-
-            <v-expansion-panel>
-              <v-expansion-panel-title>
-                <v-icon start>mdi-lightbulb</v-icon>
-                Recomendaciones
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <v-list density="compact">
-                  <v-list-item
-                    v-for="recommendation in selectedResult.recommendations"
-                    :key="recommendation"
-                    prepend-icon="mdi-arrow-right"
-                    color="primary"
-                  >
-                    <v-list-item-title class="text-body-2">
-                      {{ recommendation }}
-                    </v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
         </v-card-text>
 
         <v-card-actions>
@@ -330,6 +334,10 @@ function getImageName(imageId: string): string {
   return image?.name || 'Imagen desconocida'
 }
 
+function getImageById(imageId: string) {
+  return imagesStore.images.find(img => img.id === imageId)
+}
+
 function getProbabilityColor(probability: number): string {
   if (probability > 50) return 'red'
   return 'green'
@@ -360,10 +368,129 @@ function showDetails(result: AnalysisResult): void {
   detailsDialog.value = true
 }
 
-function downloadReport(result: AnalysisResult): void {
-  // Esta función será implementada cuando tengamos la API
-  console.log('Descargando reporte para:', result.id)
-  // Aquí iría la lógica para generar y descargar el reporte PDF
+async function downloadReport(result: AnalysisResult): Promise<void> {
+  try {
+    console.log('📄 Iniciando descarga de reporte para:', result.imageId)
+    
+    // Obtener información de la imagen
+    const imageInfo = getImageById(result.imageId)
+    
+    // Crear reporte usando los datos que ya tenemos
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      reportTitle: 'Reporte de Análisis PCOS',
+      imageInfo: {
+        id: result.imageId,
+        name: imageInfo?.name || 'Imagen sin nombre',
+        size: imageInfo?.size || 0,
+        type: imageInfo?.type || 'unknown',
+        dimensions: getImageDimensions(result.imageId),
+        uploadedAt: imageInfo?.uploadedAt?.toISOString() || new Date().toISOString()
+      },
+      analysisResults: {
+        id: result.id,
+        pcosProbability: result.pcosProbability,
+        confidence: result.confidence,
+        classification: getClassification(result),
+        riskLevel: result.pcosProbability > 50 ? 'Alto Riesgo' : 'Bajo Riesgo',
+        analyzedAt: result.analyzedAt.toISOString(),
+        status: result.status
+      },
+      summary: {
+        probability: `${result.pcosProbability.toFixed(1)}%`,
+        confidence: `${result.confidence.toFixed(1)}%`,
+        confidenceLevel: getConfidenceLevel(result.confidence),
+        riskAssessment: result.pcosProbability > 50 ? 'Se requiere seguimiento médico' : 'Resultado dentro de parámetros normales'
+      },
+      metadata: {
+        generatedBy: 'Sistema de Diagnóstico PCOS por IA',
+        version: '1.0.0',
+        processingTime: `Procesado ${formatRelativeTime(result.analyzedAt)}`
+      }
+    }
+    
+    // Convertir a JSON para descarga
+    const jsonBlob = new Blob(
+      [JSON.stringify(reportData, null, 2)], 
+      { type: 'application/json' }
+    )
+    
+    // Crear enlace de descarga
+    const url = window.URL.createObjectURL(jsonBlob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    // Nombre del archivo con timestamp
+    const timestamp = new Date().toISOString().split('T')[0]
+    const imageName = getImageName(result.imageId).replace(/\.[^/.]+$/, '') // Quitar extensión
+    link.download = `reporte_analisis_${imageName}_${timestamp}.json`
+    
+    // Simular click para descargar
+    document.body.appendChild(link)
+    link.click()
+    
+    // Limpiar
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    console.log('✅ Reporte descargado exitosamente usando datos locales')
+    
+  } catch (error) {
+    console.error('❌ Error al descargar reporte:', error)
+    alert('Error al generar el reporte. Por favor, inténtalo nuevamente.')
+  }
+}
+
+// Funciones auxiliares para mostrar datos adicionales de la API
+function getConfidenceColor(confidence: number): string {
+  if (confidence >= 90) return 'success'
+  if (confidence >= 70) return 'warning'
+  return 'error'
+}
+
+function getConfidenceLevel(confidence: number): string {
+  if (confidence >= 90) return 'Alta'
+  if (confidence >= 70) return 'Media'
+  return 'Baja'
+}
+
+function getClassification(result: AnalysisResult): string {
+  // Buscar en findings si viene la clasificación de tu API
+  const finding = result.findings.find(f => f.includes('Infectado') || f.includes('No Infectado'))
+  if (finding) return finding
+  
+  // Fallback basado en probabilidad
+  return result.pcosProbability > 50 ? 'Alto Riesgo PCOS' : 'Bajo Riesgo PCOS'
+}
+
+function getImageDimensions(imageId: string): string {
+  const image = getImageById(imageId)
+  if (image?.width && image?.height) {
+    return `${image.width}×${image.height}px`
+  }
+  return '224×224px' // Dimensión por defecto de tu API
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date()
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+  
+  if (diffInMinutes < 1) return 'ahora mismo'
+  if (diffInMinutes < 60) return `hace ${diffInMinutes}m`
+  
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) return `hace ${diffInHours}h`
+  
+  const diffInDays = Math.floor(diffInHours / 24)
+  return `hace ${diffInDays}d`
 }
 </script>
 
