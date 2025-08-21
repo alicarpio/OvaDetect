@@ -100,19 +100,19 @@
                   </v-chip>
                 </div>
                 
-                            <!-- Clasificación -->
-            <div class="d-flex justify-space-between align-center mb-3">
-              <span class="text-body-2 font-weight-medium text-grey-darken-2">
-                Clasificación
-              </span>
-              <v-chip 
-                :color="result.pcosProbability > 50 ? 'error' : 'success'" 
-                size="small" 
-                variant="tonal"
-              >
-                {{ getClassification(result) }}
-              </v-chip>
-            </div>
+                <!-- Clasificación -->
+                <div class="d-flex justify-space-between align-center mb-3">
+                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
+                    Clasificación
+                  </span>
+                  <v-chip 
+                    :color="result.pcosProbability > 70 ? 'error' : result.pcosProbability > 30 ? 'warning' : 'success'"
+                    size="small" 
+                    variant="tonal"
+                  >
+                    {{ getClassification(result) }}
+                  </v-chip>
+                </div>
             
             <!-- Información adicional del análisis médico -->
             <div v-if="getMedicalAnalysis(result)" class="mb-3">
@@ -133,13 +133,23 @@
             </div>
                 
                 <v-progress-linear
-                  :model-value="result.pcosProbability"
+                  :model-value="getInfectionProbability(result.pcosProbability)"
                   :color="getProbabilityColor(result.pcosProbability)"
                   height="8"
                   rounded
                   class="mb-3"
                   bg-color="grey-lighten-3"
                 />
+                
+                <!-- Etiqueta del progress bar -->
+                <div class="d-flex justify-space-between align-center mb-2">
+                  <span class="text-caption text-medium-emphasis">
+                    Probabilidad de Infección: {{ result.pcosProbability.toFixed(1) }}%
+                  </span>
+                  <span class="text-caption text-medium-emphasis">
+                    Clasificación: {{ getClassification(result) }}
+                  </span>
+                </div>
                 
                 <div class="d-flex justify-space-between align-center">
                   <span 
@@ -258,16 +268,16 @@
             <v-col cols="6">
               <div class="text-center">
                 <v-progress-circular
-                  :model-value="selectedResult.pcosProbability"
+                  :model-value="getInfectionProbability(selectedResult.pcosProbability)"
                   :color="getProbabilityColor(selectedResult.pcosProbability)"
                   size="80"
                   width="8"
                 >
                   <span class="text-h6 font-weight-bold">
-                    {{ selectedResult.pcosProbability.toFixed(0) }}%
+                    {{ getInfectionProbability(selectedResult.pcosProbability).toFixed(0) }}%
                   </span>
                 </v-progress-circular>
-                <p class="text-caption mt-2">Probabilidad PCOS</p>
+                <p class="text-caption mt-2">Probabilidad de Infección</p>
               </div>
             </v-col>
             <v-col cols="6">
@@ -341,11 +351,11 @@ const completedCount = computed(() =>
 )
 
 const highRiskCount = computed(() => 
-  imagesStore.completedAnalyses.filter(result => result.pcosProbability > 50).length
+  imagesStore.completedAnalyses.filter(result => result.pcosProbability > 70).length // ✅ Corregido: > 70 para alto riesgo (infectado)
 )
 
 const lowRiskCount = computed(() => 
-  imagesStore.completedAnalyses.filter(result => result.pcosProbability <= 50).length
+  imagesStore.completedAnalyses.filter(result => result.pcosProbability <= 70).length // ✅ Corregido: <= 70 para bajo riesgo (no infectado)
 )
 
 // Helper functions
@@ -359,18 +369,26 @@ function getImageById(imageId: string) {
 }
 
 function getProbabilityColor(probability: number): string {
-  if (probability > 50) return 'red'
-  return 'green'
+  if (probability > 70) return 'red'   // ✅ Alto riesgo de infección
+  if (probability > 30) return 'orange' // Riesgo medio
+  return 'green'  // ✅ Bajo riesgo
 }
 
 function getProbabilityTextColor(probability: number): string {
-  if (probability > 50) return 'text-red'
-  return 'text-green'
+  if (probability > 70) return 'text-red'   // ✅ Alto riesgo
+  if (probability > 30) return 'text-orange'
+  return 'text-green'  // ✅ Bajo riesgo
 }
 
 function getRiskLevel(probability: number): string {
-  if (probability > 50) return 'Alto riesgo PCOS'
-  return 'Bajo riesgo PCOS'
+  if (probability > 70) return 'Alto riesgo PCOS'   // ✅ >70 para alto riesgo
+  if (probability > 30) return 'Riesgo moderado PCOS'
+  return 'Bajo riesgo PCOS'  // ✅ <=30 para bajo riesgo
+}
+
+// ✅ Función corregida: pcosProbability ya ES la probabilidad de infección
+function getInfectionProbability(probability: number): number {
+  return probability // No necesitas invertir
 }
 
 function formatDate(date: Date): string {
@@ -414,7 +432,7 @@ async function downloadReport(result: AnalysisResult): Promise<void> {
                     pcosProbability: result.pcosProbability,
                     confidence: result.confidence,
                     classification: getClassification(result),
-                    riskLevel: result.pcosProbability > 50 ? 'Alto Riesgo' : 'Bajo Riesgo',
+                    riskLevel: result.pcosProbability > 70 ? 'Alto Riesgo' : 'Bajo Riesgo', // ✅ Corregido: > 70
                     analyzedAt: result.analyzedAt.toISOString(),
                     status: result.status
                   },
@@ -440,7 +458,7 @@ async function downloadReport(result: AnalysisResult): Promise<void> {
                     probability: `${result.pcosProbability.toFixed(1)}%`,
                     confidence: `${result.confidence.toFixed(1)}%`,
                     confidenceLevel: getConfidenceLevel(result.confidence),
-                    riskAssessment: result.pcosProbability > 50 ? 'Se requiere seguimiento médico' : 'Resultado dentro de parámetros normales'
+                    riskAssessment: result.pcosProbability > 70 ? 'Se requiere seguimiento médico' : 'Resultado dentro de parámetros normales' // ✅ Corregido: > 70
                   },
                   metadata: {
                     generatedBy: 'Sistema de Diagnóstico PCOS por IA',
@@ -495,12 +513,16 @@ function getConfidenceLevel(confidence: number): string {
 }
 
 function getClassification(result: AnalysisResult): string {
-  // Buscar en findings si viene la clasificación de tu API
-  const finding = result.findings.find(f => f.includes('Infectado') || f.includes('No Infectado'))
-  if (finding) return finding
+  // ✅ PRIMERO: Usar directamente el diagnóstico del backend
+  const medicalAnalysis = getMedicalAnalysis(result)
+  if (medicalAnalysis?.diagnosis) {
+    return medicalAnalysis.diagnosis // "Infectado" o "No Infectado" del backend
+  }
   
-  // Fallback basado en probabilidad
-  return result.pcosProbability > 50 ? 'Alto Riesgo PCOS' : 'Bajo Riesgo PCOS'
+  // ✅ Fallback: Basado en probabilidad corregida
+  if (result.pcosProbability > 70) return 'Infectado'
+  if (result.pcosProbability > 30) return 'Posible Infección'
+  return 'No Infectado'
 }
 
 function getImageDimensions(imageId: string): string {

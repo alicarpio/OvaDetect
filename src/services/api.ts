@@ -79,6 +79,10 @@ class ApiService {
       }, this.timeout)
 
       try {
+        console.log(`📡 Llamando API real: ${endpoint}`)
+        console.log(`🔗 URL completa: ${url}`)
+        console.log(`📋 Opciones de la petición:`, config)
+        
         const response = await fetch(url, {
           ...config,
           signal: controller.signal,
@@ -86,12 +90,23 @@ class ApiService {
 
         clearTimeout(timeoutId)
 
+        console.log(`📊 Respuesta HTTP:`, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        })
+
         if (!response.ok) {
           const errorText = await response.text()
+          console.error(`❌ Error HTTP ${response.status}:`, errorText)
           throw new Error(`HTTP ${response.status}: ${errorText}`)
         }
 
         const data = await response.json()
+        console.log(`✅ Respuesta de API:`, data)
+        console.log(`📝 Tipo de respuesta:`, typeof data)
+        console.log(`🔍 Estructura de la respuesta:`, Object.keys(data))
+        
         return data
       } catch (error) {
         clearTimeout(timeoutId)
@@ -244,13 +259,30 @@ class ApiService {
    */
   async uploadFiles(files: File[]): Promise<ImageFileRecord[]> {
     console.log(`📤 Subiendo ${files.length} archivos a API real`)
+    console.log(`📁 Archivos a subir:`, files.map(f => ({
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      lastModified: f.lastModified
+    })))
     
     const formData = new FormData()
     
     // Agregar todos los archivos con la key "files"
     files.forEach(file => {
       formData.append('files', file)
+      console.log(`➕ Agregando archivo al FormData: ${file.name}`)
     })
+
+    // Mostrar contenido del FormData
+    console.log(`📋 FormData creado con ${files.length} archivos`)
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`  - ${key}: ${value.name} (${value.size} bytes, ${value.type})`)
+      } else {
+        console.log(`  - ${key}: ${value}`)
+      }
+    }
 
     try {
       const response = await this.request<ImageFileRecord[]>('/image_files/upload', {
@@ -260,6 +292,27 @@ class ApiService {
       })
 
       console.log(`✅ ${files.length} archivos subidos exitosamente:`, response)
+      console.log(`📊 Tipo de respuesta:`, typeof response)
+      console.log(`🔍 Estructura de la respuesta:`, Array.isArray(response) ? `Array con ${response.length} elementos` : 'No es un array')
+      
+      if (Array.isArray(response)) {
+        response.forEach((record, index) => {
+          console.log(`  📸 Registro ${index + 1}:`, {
+            id: record.id,
+            name: record.name,
+            size: record.size,
+            type: record.type,
+            url: record.url,
+            uploaded_at: record.uploaded_at,
+            status: record.status,
+            error: record.error,
+            last_modified: record.last_modified,
+            medical_analysis: record.medical_analysis,
+            analysis: record.analysis
+          })
+        })
+      }
+      
       return response
 
     } catch (error) {
@@ -309,6 +362,15 @@ class ApiService {
    * Analizar múltiples imágenes en lote
    */
   async analyzeImages(images: ImageFile[]): Promise<AnalysisResult[]> {
+    console.log(`🔬 Iniciando análisis de ${images.length} imágenes`)
+    console.log(`📸 Imágenes a analizar:`, images.map(img => ({
+      id: img.id,
+      name: img.name,
+      size: img.size,
+      type: img.type,
+      status: img.status
+    })))
+    
     // Si las imágenes son blob URLs locales, primero las subimos
     const imagesToUpload: File[] = []
     const uploadedImages: ImageFile[] = []
@@ -316,9 +378,11 @@ class ApiService {
     for (const image of images) {
       if (image.url.startsWith('blob:')) {
         // Convertir blob URL a File para subir
+        console.log(`📤 Imagen ${image.name} es local, convirtiendo a File para subir`)
         const file = await this.urlToFile(image.url, image.name, image.type)
         imagesToUpload.push(file)
       } else {
+        console.log(`✅ Imagen ${image.name} ya está subida, agregando a lista de análisis`)
         uploadedImages.push(image)
       }
     }
@@ -330,14 +394,15 @@ class ApiService {
       
       // Convertir registros subidos a formato ImageFile
       uploadedRecords.forEach((record, index) => {
+        console.log(`🔄 Convirtiendo registro subido ${index + 1}:`, record)
         uploadedImages.push({
           id: record.id.toString(),
-          name: record.original_filename || record.name || `imagen_${index}`,
-          size: record.file_size || record.size || 0,
-          type: record.mime_type || record.type || 'application/octet-stream',
+          name: record.name || `imagen_${index}`,
+          size: record.size || 0,
+          type: record.type || 'application/octet-stream',
           lastModified: Date.now(),
-          url: record.file_path || record.url || '', // o construir URL completa
-          uploadedAt: record.created_at ? new Date(record.created_at) : new Date(),
+          url: record.url || '', // o construir URL completa
+          uploadedAt: record.uploaded_at ? new Date(record.uploaded_at) : new Date(),
           status: 'uploaded' as const
         })
       })
@@ -351,6 +416,8 @@ class ApiService {
       imageType: image.type
     }))
 
+    console.log(`📋 Solicitudes de análisis preparadas:`, requests)
+
     const response = await this.request<ApiResponse<AnalysisApiResponse[]>>('/analyze/batch', {
       method: 'POST',
       headers: {
@@ -359,21 +426,43 @@ class ApiService {
       body: JSON.stringify({ images: requests })
     })
 
+    console.log(`🔬 Respuesta del análisis por lotes:`, response)
+    console.log(`📊 Tipo de respuesta:`, typeof response)
+    console.log(`🔍 Estructura de la respuesta:`, Object.keys(response))
+
     if (!response.success) {
+      console.error(`❌ Error en análisis por lotes:`, response.error)
       throw new Error(response.error || 'Error en el análisis por lotes')
     }
 
-    return response.data.map(apiResult => ({
-      id: apiResult.id,
-      imageId: apiResult.imageId,
-      pcosProbability: apiResult.pcosProbability,
-      confidence: apiResult.confidence,
-      findings: apiResult.findings,
-      recommendations: apiResult.recommendations,
-      analyzedAt: new Date(apiResult.analyzedAt),
-      status: apiResult.status,
-      error: apiResult.error
-    }))
+    console.log(`✅ Análisis exitoso, procesando ${response.data.length} resultados`)
+
+    const results = response.data.map((apiResult, index) => {
+      console.log(`📊 Procesando resultado ${index + 1}:`, {
+        id: apiResult.id,
+        imageId: apiResult.imageId,
+        pcosProbability: apiResult.pcosProbability,
+        confidence: apiResult.confidence,
+        findings: apiResult.findings,
+        recommendations: apiResult.recommendations,
+        status: apiResult.status
+      })
+      
+      return {
+        id: apiResult.id,
+        imageId: apiResult.imageId,
+        pcosProbability: apiResult.pcosProbability,
+        confidence: apiResult.confidence,
+        findings: apiResult.findings,
+        recommendations: apiResult.recommendations,
+        analyzedAt: new Date(apiResult.analyzedAt),
+        status: apiResult.status,
+        error: apiResult.error
+      }
+    })
+
+    console.log(`🎯 Análisis completado, retornando ${results.length} resultados`)
+    return results
   }
 
   /**

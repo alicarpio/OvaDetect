@@ -40,11 +40,11 @@ export const useImagesStore = defineStore('images', () => {
   )
 
   const highRiskCount = computed(() => 
-    completedAnalyses.value.filter(result => result.pcosProbability > 50).length
+    completedAnalyses.value.filter(result => result.pcosProbability > 70).length // ✅ Corregido: > 70 para alto riesgo (infectado)
   )
 
   const lowRiskCount = computed(() => 
-    completedAnalyses.value.filter(result => result.pcosProbability <= 50).length
+    completedAnalyses.value.filter(result => result.pcosProbability <= 70).length // ✅ Corregido: <= 70 para bajo riesgo (no infectado)
   )
 
   // Actions
@@ -353,7 +353,10 @@ export const useImagesStore = defineStore('images', () => {
    * Subir y analizar imágenes seleccionadas usando tu API
    * (Ahora sí sube a la API cuando se hace clic en "Analizar")
    */
-    async function analyzeImages(imageIds: string[]): Promise<AnalysisResult[]> {
+  async function analyzeImages(imageIds: string[]): Promise<AnalysisResult[]> {
+    console.log(`🔬 Iniciando análisis de ${imageIds.length} imágenes seleccionadas`)
+    console.log(`🆔 IDs de imágenes:`, imageIds)
+    
     if (imageIds.length === 0) {
       throw new Error('No hay imágenes para analizar')
     }
@@ -366,21 +369,45 @@ export const useImagesStore = defineStore('images', () => {
         imageIds.includes(img.id) && img.tempFile && img.status !== 'error'
       )
       
+      console.log(`📸 Imágenes encontradas para procesar:`, imagesToProcess.map(img => ({
+        id: img.id,
+        name: img.name,
+        size: img.size,
+        type: img.type,
+        hasTempFile: !!img.tempFile,
+        status: img.status
+      })))
+      
       if (imagesToProcess.length === 0) {
         throw new Error('No se encontraron archivos válidos para procesar')
       }
 
       // Subir archivos a la API (tu API ya hace el análisis automáticamente)
       const filesToUpload = imagesToProcess.map(img => img.tempFile!).filter(Boolean)
+      console.log(`📤 Archivos a subir:`, filesToUpload.map(f => ({
+        name: f.name,
+        size: f.size,
+        type: f.type
+      })))
       
       if (filesToUpload.length > 0) {
+        console.log(`🚀 Llamando a apiService.uploadFiles con ${filesToUpload.length} archivos`)
         const uploadedRecords: ImageFileRecord[] = await apiService.uploadFiles(filesToUpload)
+        
+        console.log(`📥 Respuesta de uploadFiles:`, uploadedRecords)
+        console.log(`📊 Tipo de respuesta:`, typeof uploadedRecords)
+        console.log(`🔍 Estructura de la respuesta:`, Array.isArray(uploadedRecords) ? `Array con ${uploadedRecords.length} elementos` : 'No es un array')
         
         // Procesar cada respuesta y actualizar el store
         uploadedRecords.forEach((record, index) => {
+          console.log(`🔄 Procesando registro ${index + 1}:`, record)
+          console.log(`🔍 Campos disponibles en el registro:`, Object.keys(record))
+          
           const imageFile = imagesToProcess[index]
           
           if (imageFile && record && typeof record === 'object') {
+            console.log(`📸 Actualizando imagen ${imageFile.name} con datos de la API`)
+            
             // Actualizar imagen con datos reales de la API
             imageFile.id = record.id?.toString() || imageFile.id
             imageFile.name = record.name || imageFile.name
@@ -392,14 +419,25 @@ export const useImagesStore = defineStore('images', () => {
             imageFile.width = record.width || undefined
             imageFile.height = record.height || undefined
             
+            console.log(`✅ Imagen actualizada:`, {
+              id: imageFile.id,
+              name: imageFile.name,
+              size: imageFile.size,
+              type: imageFile.type,
+              status: imageFile.status
+            })
+            
             // Limpiar el archivo temporal
             if (imageFile.tempFile) {
               URL.revokeObjectURL(imageFile.url) // Limpiar blob URL
               delete imageFile.tempFile
+              console.log(`🧹 Archivo temporal limpiado para ${imageFile.name}`)
             }
             
             // Procesar resultado del análisis IA
             if (record.medical_analysis) {
+              console.log(`🧠 Procesando medical_analysis para ${imageFile.name}:`, record.medical_analysis)
+              
               const analysisResult: AnalysisResult = {
                 id: record.medical_analysis.id?.toString() || crypto.randomUUID(),
                 imageId: imageFile.id,
@@ -412,10 +450,15 @@ export const useImagesStore = defineStore('images', () => {
                 riskLevel: record.medical_analysis.pcos_probability > 0.5 ? 'alto' : 'bajo'
               }
               
+              console.log(`📊 Resultado de análisis creado:`, analysisResult)
+              
               // Agregar resultado al store
               analysisResults.value.push(analysisResult)
+              console.log(`✅ Resultado agregado al store para ${imageFile.name}`)
               
             } else if (record.analysis) {
+              console.log(`🧠 Procesando analysis legacy para ${imageFile.name}:`, record.analysis)
+              
               const analysisResult: AnalysisResult = {
                 id: record.analysis.id?.toString() || crypto.randomUUID(),
                 imageId: imageFile.id,
@@ -432,9 +475,21 @@ export const useImagesStore = defineStore('images', () => {
                 riskLevel: record.analysis.pcos_probability > 0.5 ? 'alto' : 'bajo'
               }
               
+              console.log(`📊 Resultado de análisis legacy creado:`, analysisResult)
+              
               // Agregar resultado al store
               analysisResults.value.push(analysisResult)
+              console.log(`✅ Resultado legacy agregado al store para ${imageFile.name}`)
+            } else {
+              console.warn(`⚠️ No se encontró análisis en el registro para ${imageFile.name}`)
+              console.log(`🔍 Campos disponibles:`, Object.keys(record))
             }
+          } else {
+            console.error(`❌ Error procesando registro ${index}:`, {
+              hasImageFile: !!imageFile,
+              hasRecord: !!record,
+              recordType: typeof record
+            })
           }
         })
       }
@@ -443,6 +498,9 @@ export const useImagesStore = defineStore('images', () => {
       const results = analysisResults.value.filter(result => 
         imageIds.includes(result.imageId) && result.status === 'completed'
       )
+      
+      console.log(`🎯 Análisis completado. Resultados encontrados:`, results)
+      console.log(`📊 Total de resultados en el store:`, analysisResults.value.length)
 
       return results
 
@@ -451,6 +509,7 @@ export const useImagesStore = defineStore('images', () => {
       throw error
     } finally {
       isAnalyzing.value = false
+      console.log(`🏁 Estado de análisis actualizado:`, isAnalyzing.value)
     }
   }
 
