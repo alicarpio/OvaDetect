@@ -53,8 +53,6 @@ export const useImagesStore = defineStore('images', () => {
    * Agregar archivo al store para mostrar (sin subir a API todavía)
    */
   function addFileToStore(file: File): ImageFile {
-    console.log(`📁 Agregando archivo al store: ${file.name}`)
-    
     // Crear objeto de imagen temporal
     const imageFile: ImageFile = {
       id: crypto.randomUUID(),
@@ -85,7 +83,6 @@ export const useImagesStore = defineStore('images', () => {
 
     // Agregar al store
     images.value.push(imageFile)
-    console.log(`✅ Archivo agregado al store: ${imageFile.name}`)
     return imageFile
   }
 
@@ -93,8 +90,6 @@ export const useImagesStore = defineStore('images', () => {
    * Agregar imagen con upload real a la API
    */
   async function addImage(file: File): Promise<ImageFile> {
-    console.log(`📤 Agregando imagen: ${file.name}`)
-    
     // Crear objeto de imagen temporal
     const imageFile: ImageFile = {
       id: crypto.randomUUID(),
@@ -127,10 +122,7 @@ export const useImagesStore = defineStore('images', () => {
 
     try {
       // Subir a la API real
-      console.log(`🔄 Subiendo ${file.name} a la API...`)
       const uploadedRecord: ImageFileRecord = await apiService.uploadFile(file)
-      
-      console.log(`🔍 Datos recibidos de la API:`, uploadedRecord)
       
       // Actualizar con datos del servidor (estructura real de tu API)
       if (uploadedRecord && typeof uploadedRecord === 'object') {
@@ -142,9 +134,42 @@ export const useImagesStore = defineStore('images', () => {
         imageFile.url = uploadedRecord.url || ''
         imageFile.uploadedAt = uploadedRecord.uploaded_at ? new Date(uploadedRecord.uploaded_at) : new Date()
         imageFile.status = uploadedRecord.status || 'uploaded'
+        imageFile.width = uploadedRecord.width || undefined
+        imageFile.height = uploadedRecord.height || undefined
         
         // ¡Tu API ya procesa la imagen con IA! Guardar el resultado directamente
-        if (uploadedRecord.analysis) {
+        console.log(`🔍 Verificando campos de análisis disponibles:`)
+        console.log(`   - medical_analysis:`, uploadedRecord.medical_analysis)
+        console.log(`   - analysis:`, uploadedRecord.analysis)
+        console.log(`   - Todos los campos:`, Object.keys(uploadedRecord))
+        
+        if (uploadedRecord.medical_analysis) {
+          console.log('🔍 Usando nueva estructura medical_analysis')
+          console.log(`   - Diagnóstico:`, uploadedRecord.medical_analysis.diagnosis)
+          console.log(`   - Probabilidad:`, uploadedRecord.medical_analysis.pcos_probability)
+          console.log(`   - Confianza:`, uploadedRecord.medical_analysis.confidence_score)
+          
+          const analysisResult: AnalysisResult = {
+            id: uploadedRecord.medical_analysis.id?.toString() || crypto.randomUUID(),
+            imageId: imageFile.id,
+            pcosProbability: uploadedRecord.medical_analysis.pcos_probability * 100, // Convertir a porcentaje
+            confidence: uploadedRecord.medical_analysis.confidence_score * 100, // Convertir a porcentaje
+            findings: [uploadedRecord.medical_analysis.diagnosis],
+            recommendations: uploadedRecord.medical_analysis.clinical_recommendations,
+            analyzedAt: new Date(),
+            status: 'completed',
+            riskLevel: uploadedRecord.medical_analysis.pcos_probability > 0.5 ? 'alto' : 'bajo'
+          }
+          
+          // Agregar el resultado al store
+          analysisResults.value.push(analysisResult)
+          console.log(`🧠 Análisis IA completado: ${uploadedRecord.medical_analysis.pcos_probability.toFixed(2)} probabilidad PCOS`)
+          console.log(`🏥 Diagnóstico: ${uploadedRecord.medical_analysis.diagnosis}`)
+          console.log(`📊 Confianza: ${uploadedRecord.medical_analysis.confidence_score.toFixed(3)}`)
+          console.log(`✅ Resultado agregado al store:`, analysisResult)
+          
+        } else if (uploadedRecord.analysis) {
+          console.log('🔍 Usando estructura legacy analysis')
           const analysisResult: AnalysisResult = {
             id: uploadedRecord.analysis.id?.toString() || crypto.randomUUID(),
             imageId: imageFile.id,
@@ -273,7 +298,7 @@ export const useImagesStore = defineStore('images', () => {
         } else {
           console.warn(`⚠️ Respuesta de API inesperada para archivo ${index}:`, record)
           if (imageFile) {
-            imageFile.status = 'uploaded'
+        imageFile.status = 'uploaded'
           }
         }
       })
@@ -299,7 +324,7 @@ export const useImagesStore = defineStore('images', () => {
     if (index > -1) {
       const image = images.value[index]
       if (image.url.startsWith('blob:')) {
-        URL.revokeObjectURL(image.url)
+      URL.revokeObjectURL(image.url)
       }
       images.value.splice(index, 1)
       
@@ -328,13 +353,12 @@ export const useImagesStore = defineStore('images', () => {
    * Subir y analizar imágenes seleccionadas usando tu API
    * (Ahora sí sube a la API cuando se hace clic en "Analizar")
    */
-  async function analyzeImages(imageIds: string[]): Promise<AnalysisResult[]> {
+    async function analyzeImages(imageIds: string[]): Promise<AnalysisResult[]> {
     if (imageIds.length === 0) {
       throw new Error('No hay imágenes para analizar')
     }
 
     isAnalyzing.value = true
-    console.log('🔄 Iniciando upload y análisis de', imageIds.length, 'imágenes...')
 
     try {
       // Obtener las imágenes a procesar
@@ -350,12 +374,12 @@ export const useImagesStore = defineStore('images', () => {
       const filesToUpload = imagesToProcess.map(img => img.tempFile!).filter(Boolean)
       
       if (filesToUpload.length > 0) {
-        console.log(`📤 Subiendo ${filesToUpload.length} archivos a tu API...`)
         const uploadedRecords: ImageFileRecord[] = await apiService.uploadFiles(filesToUpload)
         
         // Procesar cada respuesta y actualizar el store
         uploadedRecords.forEach((record, index) => {
           const imageFile = imagesToProcess[index]
+          
           if (imageFile && record && typeof record === 'object') {
             // Actualizar imagen con datos reales de la API
             imageFile.id = record.id?.toString() || imageFile.id
@@ -365,6 +389,8 @@ export const useImagesStore = defineStore('images', () => {
             imageFile.url = record.url || imageFile.url
             imageFile.uploadedAt = record.uploaded_at ? new Date(record.uploaded_at) : new Date()
             imageFile.status = record.status || 'uploaded'
+            imageFile.width = record.width || undefined
+            imageFile.height = record.height || undefined
             
             // Limpiar el archivo temporal
             if (imageFile.tempFile) {
@@ -373,7 +399,23 @@ export const useImagesStore = defineStore('images', () => {
             }
             
             // Procesar resultado del análisis IA
-            if (record.analysis) {
+            if (record.medical_analysis) {
+              const analysisResult: AnalysisResult = {
+                id: record.medical_analysis.id?.toString() || crypto.randomUUID(),
+                imageId: imageFile.id,
+                pcosProbability: record.medical_analysis.pcos_probability * 100, // Convertir a porcentaje
+                confidence: record.medical_analysis.confidence_score * 100, // Convertir a porcentaje
+                findings: [record.medical_analysis.diagnosis],
+                recommendations: record.medical_analysis.clinical_recommendations,
+                analyzedAt: new Date(),
+                status: 'completed',
+                riskLevel: record.medical_analysis.pcos_probability > 0.5 ? 'alto' : 'bajo'
+              }
+              
+              // Agregar resultado al store
+              analysisResults.value.push(analysisResult)
+              
+            } else if (record.analysis) {
               const analysisResult: AnalysisResult = {
                 id: record.analysis.id?.toString() || crypto.randomUUID(),
                 imageId: imageFile.id,
@@ -392,7 +434,6 @@ export const useImagesStore = defineStore('images', () => {
               
               // Agregar resultado al store
               analysisResults.value.push(analysisResult)
-              console.log(`🧠 Análisis IA completado para ${imageFile.name}: ${record.analysis.pcos_probability.toFixed(2)} probabilidad PCOS`)
             }
           }
         })
@@ -403,7 +444,6 @@ export const useImagesStore = defineStore('images', () => {
         imageIds.includes(result.imageId) && result.status === 'completed'
       )
 
-      console.log(`✅ Análisis completado para ${results.length} imágenes`)
       return results
 
     } catch (error) {

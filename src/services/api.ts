@@ -2,8 +2,8 @@ import type { AnalysisResult, ImageFile, ImageFileRecord } from '@/types'
 
 // Configuración de la API
 const API_CONFIG = {
-  baseURL: '/api/v1', // Usando proxy de Vite
-  timeout: 30000, // 30 segundos timeout
+  baseURL: 'http://127.0.0.1:8000/api/v1', // URL directa a tu API
+  timeout: 60000, // 1 minuto timeout para análisis de IA
   headers: {
     // No incluir Content-Type aquí para FormData
     // 'Authorization': 'Bearer your-token' // Agrega si necesitas auth
@@ -72,27 +72,34 @@ class ApiService {
       }
 
       // Llamada real a la API
-      console.log(`📡 Llamando API real: ${url}`)
-      
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+        console.warn(`⚠️ Timeout después de ${this.timeout}ms para: ${url}`)
+      }, this.timeout)
 
-      const response = await fetch(url, {
-        ...config,
-        signal: controller.signal,
-      })
+      try {
+        const response = await fetch(url, {
+          ...config,
+          signal: controller.signal,
+        })
 
-      clearTimeout(timeoutId)
+        clearTimeout(timeoutId)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
+
+        const data = await response.json()
+        return data
+      } catch (error) {
+        clearTimeout(timeoutId)
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(`Timeout: La API tardó más de ${this.timeout/1000} segundos en responder`)
+        }
+        throw error
       }
-
-      const data = await response.json()
-      console.log(`✅ Respuesta de API:`, data)
-      
-      return data
 
     } catch (error) {
       console.error('❌ Error en API:', error)

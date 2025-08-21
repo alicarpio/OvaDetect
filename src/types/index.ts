@@ -41,7 +41,7 @@ export interface UploadOptions {
   maxFiles: number
 }
 
-// Tipos para la respuesta de tu API
+// Tipos para la respuesta de tu API (actualizada)
 export interface ImageFileRecord {
   id: number | string
   name: string
@@ -53,12 +53,33 @@ export interface ImageFileRecord {
   uploaded_at: string
   status: string
   error?: string | null
-  // Campos adicionales que tu API puede devolver
-  original_filename?: string
-  file_size?: number
-  mime_type?: string
-  file_path?: string
-  created_at?: string
+  last_modified?: number
+  
+  // Nueva estructura de análisis médico
+  medical_analysis?: {
+    id: number | string
+    diagnosis: string
+    pcos_probability: number
+    confidence_score: number
+    requires_specialist_review: boolean
+    clinical_recommendations: string[]
+    
+    model_validation: {
+      threshold: number
+      sensitivity: number
+      specificity: number
+      auc: number
+      model_version: string
+    }
+    
+    clinical_interpretation: {
+      confidence_level: string
+      clinical_action: string
+      reliability: string
+    }
+  }
+  
+  // Campos legacy para compatibilidad
   analysis?: {
     id: number | string
     pcos_probability: number

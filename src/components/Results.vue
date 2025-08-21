@@ -32,8 +32,8 @@
             v-for="result in allResults" 
             :key="result.id" 
             class="mb-4 result-card"
-            elevation="2"
-            rounded="lg"
+                        elevation="2"
+                        rounded="lg"
           >
             <v-card-text class="pa-6">
               <!-- Image Name with Status -->
@@ -64,8 +64,8 @@
                     class="me-2"
                   />
                   <span class="text-caption text-orange font-weight-medium">
-                    Procesando...
-                  </span>
+                  Procesando...
+                </span>
                 </div>
               </div>
 
@@ -100,19 +100,37 @@
                   </v-chip>
                 </div>
                 
-                <!-- Clasificación -->
-                <div class="d-flex justify-space-between align-center mb-3">
-                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
-                    Clasificación
-                  </span>
-                  <v-chip 
-                    :color="result.pcosProbability > 50 ? 'error' : 'success'" 
-                    size="small" 
-                    variant="tonal"
-                  >
-                    {{ getClassification(result) }}
-                  </v-chip>
-                </div>
+                            <!-- Clasificación -->
+            <div class="d-flex justify-space-between align-center mb-3">
+              <span class="text-body-2 font-weight-medium text-grey-darken-2">
+                Clasificación
+              </span>
+              <v-chip 
+                :color="result.pcosProbability > 50 ? 'error' : 'success'" 
+                size="small" 
+                variant="tonal"
+              >
+                {{ getClassification(result) }}
+              </v-chip>
+            </div>
+            
+            <!-- Información adicional del análisis médico -->
+            <div v-if="getMedicalAnalysis(result)" class="mb-3">
+              <v-chip 
+                :color="getMedicalAnalysis(result)?.requires_specialist_review ? 'warning' : 'success'" 
+                size="small" 
+                variant="flat"
+                class="mb-2"
+              >
+                {{ getMedicalAnalysis(result)?.requires_specialist_review ? '⚠️ Revisión Especialista' : '✅ Seguimiento Rutinario' }}
+              </v-chip>
+              
+              <div class="text-caption text-medium-emphasis">
+                <div>Modelo: {{ getMedicalAnalysis(result)?.model_validation?.model_version }}</div>
+                <div>Sensibilidad: {{ (getMedicalAnalysis(result)?.model_validation?.sensitivity * 100).toFixed(1) }}%</div>
+                <div>Especificidad: {{ (getMedicalAnalysis(result)?.model_validation?.specificity * 100).toFixed(1) }}%</div>
+              </div>
+            </div>
                 
                 <v-progress-linear
                   :model-value="result.pcosProbability"
@@ -314,7 +332,9 @@ const detailsDialog = ref(false)
 const selectedResult = ref<AnalysisResult | null>(null)
 
 // Computed properties
-const allResults = computed(() => imagesStore.analysisResults)
+  const allResults = computed(() => {
+    return imagesStore.analysisResults
+  })
 
 const completedCount = computed(() => 
   imagesStore.completedAnalyses.length
@@ -375,39 +395,59 @@ async function downloadReport(result: AnalysisResult): Promise<void> {
     // Obtener información de la imagen
     const imageInfo = getImageById(result.imageId)
     
-    // Crear reporte usando los datos que ya tenemos
-    const reportData = {
-      generatedAt: new Date().toISOString(),
-      reportTitle: 'Reporte de Análisis PCOS',
-      imageInfo: {
-        id: result.imageId,
-        name: imageInfo?.name || 'Imagen sin nombre',
-        size: imageInfo?.size || 0,
-        type: imageInfo?.type || 'unknown',
-        dimensions: getImageDimensions(result.imageId),
-        uploadedAt: imageInfo?.uploadedAt?.toISOString() || new Date().toISOString()
-      },
-      analysisResults: {
-        id: result.id,
-        pcosProbability: result.pcosProbability,
-        confidence: result.confidence,
-        classification: getClassification(result),
-        riskLevel: result.pcosProbability > 50 ? 'Alto Riesgo' : 'Bajo Riesgo',
-        analyzedAt: result.analyzedAt.toISOString(),
-        status: result.status
-      },
-      summary: {
-        probability: `${result.pcosProbability.toFixed(1)}%`,
-        confidence: `${result.confidence.toFixed(1)}%`,
-        confidenceLevel: getConfidenceLevel(result.confidence),
-        riskAssessment: result.pcosProbability > 50 ? 'Se requiere seguimiento médico' : 'Resultado dentro de parámetros normales'
-      },
-      metadata: {
-        generatedBy: 'Sistema de Diagnóstico PCOS por IA',
-        version: '1.0.0',
-        processingTime: `Procesado ${formatRelativeTime(result.analyzedAt)}`
-      }
-    }
+                    // Crear reporte usando los datos que ya tenemos
+                const medicalAnalysis = getMedicalAnalysis(result)
+                
+                const reportData = {
+                  generatedAt: new Date().toISOString(),
+                  reportTitle: 'Reporte de Análisis PCOS',
+                  imageInfo: {
+                    id: result.imageId,
+                    name: imageInfo?.name || 'Imagen sin nombre',
+                    size: imageInfo?.size || 0,
+                    type: imageInfo?.type || 'unknown',
+                    dimensions: getImageDimensions(result.imageId),
+                    uploadedAt: imageInfo?.uploadedAt?.toISOString() || new Date().toISOString()
+                  },
+                  analysisResults: {
+                    id: result.id,
+                    pcosProbability: result.pcosProbability,
+                    confidence: result.confidence,
+                    classification: getClassification(result),
+                    riskLevel: result.pcosProbability > 50 ? 'Alto Riesgo' : 'Bajo Riesgo',
+                    analyzedAt: result.analyzedAt.toISOString(),
+                    status: result.status
+                  },
+                  medicalAnalysis: medicalAnalysis ? {
+                    diagnosis: medicalAnalysis.diagnosis,
+                    confidenceScore: medicalAnalysis.confidence_score,
+                    requiresSpecialistReview: medicalAnalysis.requires_specialist_review,
+                    clinicalRecommendations: medicalAnalysis.clinical_recommendations,
+                    modelValidation: {
+                      threshold: medicalAnalysis.model_validation?.threshold,
+                      sensitivity: medicalAnalysis.model_validation?.sensitivity,
+                      specificity: medicalAnalysis.model_validation?.specificity,
+                      auc: medicalAnalysis.model_validation?.auc,
+                      modelVersion: medicalAnalysis.model_validation?.model_version
+                    },
+                    clinicalInterpretation: {
+                      confidenceLevel: medicalAnalysis.clinical_interpretation?.confidence_level,
+                      clinicalAction: medicalAnalysis.clinical_interpretation?.clinical_action,
+                      reliability: medicalAnalysis.clinical_interpretation?.reliability
+                    }
+                  } : null,
+                  summary: {
+                    probability: `${result.pcosProbability.toFixed(1)}%`,
+                    confidence: `${result.confidence.toFixed(1)}%`,
+                    confidenceLevel: getConfidenceLevel(result.confidence),
+                    riskAssessment: result.pcosProbability > 50 ? 'Se requiere seguimiento médico' : 'Resultado dentro de parámetros normales'
+                  },
+                  metadata: {
+                    generatedBy: 'Sistema de Diagnóstico PCOS por IA',
+                    version: '1.0.0',
+                    processingTime: `Procesado ${formatRelativeTime(result.analyzedAt)}`
+                  }
+                }
     
     // Convertir a JSON para descarga
     const jsonBlob = new Blob(
@@ -479,18 +519,33 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-  
-  if (diffInMinutes < 1) return 'ahora mismo'
-  if (diffInMinutes < 60) return `hace ${diffInMinutes}m`
-  
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  if (diffInHours < 24) return `hace ${diffInHours}h`
-  
-  const diffInDays = Math.floor(diffInHours / 24)
-  return `hace ${diffInDays}d`
+            function formatRelativeTime(date: Date): string {
+              const now = new Date()
+              const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+              
+              if (diffInMinutes < 1) return 'ahora mismo'
+              if (diffInMinutes < 60) return `hace ${diffInMinutes}m`
+              
+              const diffInHours = Math.floor(diffInMinutes / 60)
+              if (diffInHours < 24) return `hace ${diffInHours}h`
+              
+              const diffInDays = Math.floor(diffInHours / 24)
+              return `hace ${diffInDays}d`
+            }
+
+            // Función para obtener información médica adicional
+            function getMedicalAnalysis(result: AnalysisResult): any {
+              const image = imagesStore.images.find(img => img.id === result.imageId)
+              if (!image) return null
+              
+              // Buscar en el store por el ID del análisis
+              const analysisRecord = imagesStore.analysisResults.find(ar => ar.id === result.id)
+              if (analysisRecord) {
+                // Si tenemos datos médicos en el store, los retornamos
+                return (analysisRecord as any).medical_analysis || null
+              }
+              
+              return null
 }
 </script>
 
