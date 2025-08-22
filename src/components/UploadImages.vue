@@ -6,7 +6,7 @@
         <div class="d-flex justify-space-between align-center mb-6">
           <div>
             <h1 class="text-h4 font-weight-bold text-primary mb-2">
-              Diagnóstico PCOS por IA
+              Diagnóstico SOP por IA
             </h1>
             <p class="text-subtitle-1 text-medium-emphasis">
               Análisis automático de ultrasonidos ováricos
@@ -187,7 +187,7 @@
                 </template>
                 <h4 class="text-h6 font-weight-medium mb-2">¿Cómo funciona?</h4>
                 <p class="text-body-2">
-                  Nuestro modelo de IA analiza imágenes de ultrasonido ovárico para detectar patrones asociados con el Síndrome de Ovario Poliquístico (PCOS).
+                  Nuestro modelo de IA analiza imágenes de ultrasonido ovárico para detectar patrones asociados con el Síndrome de Ovario Poliquístico (SOP).
                 </p>
               </v-alert>
             </v-col>
@@ -282,7 +282,16 @@ async function handleFiles(files: File[]) {
 async function analyzeImages() {
   const imageIds = imagesStore.uploadedImages.map(img => img.id)
   if (imageIds.length > 0) {
+    console.log('🚀 Iniciando análisis de imágenes...')
+    console.log('📸 Imágenes a analizar:', imageIds)
+    
     await imagesStore.analyzeImages(imageIds)
+    
+    console.log('✅ Análisis completado, limpiando imágenes del upload...')
+    // Limpiar imágenes del upload después de analizarlas
+    imagesStore.clearUploadedImages()
+    
+    console.log('🧹 Imágenes limpiadas, navegando a results...')
     router.push('/results')
   }
 }

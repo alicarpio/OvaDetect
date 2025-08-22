@@ -9,13 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mdi/font": "^7.4.47",
     "@tailwindcss/vite": "^4.1.12",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
+    "pinia": "^2.1.7",
     "tailwindcss": "^4.1.12",
     "vue": "^3.4.0",
     "vue-router": "^4.2.5",
-    "pinia": "^2.1.7",
-    "vuetify": "^3.5.0",
-    "@mdi/font": "^7.4.47"
+    "vuetify": "^3.5.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",

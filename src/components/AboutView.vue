@@ -8,7 +8,7 @@
             OvaDetect
           </h1>
           <p class="text-h6 text-medium-emphasis">
-            Sistema de Diagnóstico PCOS por Inteligencia Artificial
+            Sistema de Diagnóstico SOP por Inteligencia Artificial
           </p>
           <v-chip color="primary" variant="outlined" class="mt-2">
             Versión 1.0
@@ -24,7 +24,7 @@
             <p class="text-body-1 mb-4">
               OvaDetect es una herramienta innovadora de apoyo diagnóstico que utiliza 
               inteligencia artificial para analizar imágenes de ultrasonido ovárico y 
-              detectar patrones asociados con el Síndrome de Ovario Poliquístico (PCOS).
+              detectar patrones asociados con el Síndrome de Ovario Poliquístico (SOP).
             </p>
             <p class="text-body-1">
               Nuestro sistema está diseñado para asistir a profesionales médicos en el 

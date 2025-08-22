@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="pa-6">
+  <v-container fluid class="pa-6 mx-4 md:mx-8 lg:mx-16">
     <v-row>
       <v-col cols="12">
         <!-- Header -->
@@ -27,162 +27,8 @@
 
         <!-- Results -->
         <div v-else-if="allResults.length > 0">
-          <!-- Individual Result Cards -->
-          <v-card 
-            v-for="result in allResults" 
-            :key="result.id" 
-            class="mb-4 result-card"
-                        elevation="2"
-                        rounded="lg"
-          >
-            <v-card-text class="pa-6">
-              <!-- Image Name with Status -->
-              <div class="d-flex align-center justify-space-between mb-2">
-                <div>
-                  <div class="text-body-1 font-weight-medium text-grey-darken-4">
-                    {{ getImageName(result.imageId) }}
-                  </div>
-                  <!-- Información adicional del archivo -->
-                  <div class="text-caption text-medium-emphasis mt-1">
-                    {{ formatFileSize(getImageById(result.imageId)?.size || 0) }} • 
-                    {{ getImageDimensions(result.imageId) }} •
-                    Procesado {{ formatRelativeTime(result.analyzedAt) }}
-                  </div>
-                </div>
-                <div v-if="result.status === 'completed'" class="d-flex align-center">
-                  <v-icon size="16" color="success" class="me-2">mdi-check-circle</v-icon>
-                  <span class="text-caption text-success font-weight-medium">
-                    Completado
-                  </span>
-                </div>
-                <div v-else-if="result.status === 'processing'" class="d-flex align-center">
-                  <v-progress-circular
-                    indeterminate
-                    color="orange"
-                    size="16"
-                    width="2"
-                    class="me-2"
-                  />
-                  <span class="text-caption text-orange font-weight-medium">
-                  Procesando...
-                </span>
-                </div>
-              </div>
-
-              <!-- Divisor visual -->
-              <v-divider class="my-4"></v-divider>
-
-              <!-- Probability Section (only for completed) -->
-              <div v-if="result.status === 'completed'">
-                <div class="d-flex justify-space-between align-center mb-2">
-                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
-                    Probabilidad PCOS
-                  </span>
-                  <span 
-                    class="text-h5 font-weight-bold"
-                    :class="getProbabilityTextColor(result.pcosProbability)"
-                  >
-                    {{ result.pcosProbability.toFixed(1) }}%
-                  </span>
-                </div>
-                
-                <!-- Nivel de Confianza -->
-                <div class="d-flex justify-space-between align-center mb-2">
-                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
-                    Confianza del Modelo
-                  </span>
-                  <v-chip 
-                    :color="getConfidenceColor(result.confidence)" 
-                    size="small" 
-                    variant="flat"
-                  >
-                    {{ result.confidence.toFixed(1) }}%
-                  </v-chip>
-                </div>
-                
-                <!-- Clasificación -->
-                <div class="d-flex justify-space-between align-center mb-3">
-                  <span class="text-body-2 font-weight-medium text-grey-darken-2">
-                    Clasificación
-                  </span>
-                  <v-chip 
-                    :color="result.pcosProbability > 70 ? 'error' : result.pcosProbability > 30 ? 'warning' : 'success'"
-                    size="small" 
-                    variant="tonal"
-                  >
-                    {{ getClassification(result) }}
-                  </v-chip>
-                </div>
-            
-            <!-- Información adicional del análisis médico -->
-            <div v-if="getMedicalAnalysis(result)" class="mb-3">
-              <v-chip 
-                :color="getMedicalAnalysis(result)?.requires_specialist_review ? 'warning' : 'success'" 
-                size="small" 
-                variant="flat"
-                class="mb-2"
-              >
-                {{ getMedicalAnalysis(result)?.requires_specialist_review ? '⚠️ Revisión Especialista' : '✅ Seguimiento Rutinario' }}
-              </v-chip>
-              
-              <div class="text-caption text-medium-emphasis">
-                <div>Modelo: {{ getMedicalAnalysis(result)?.model_validation?.model_version }}</div>
-                <div>Sensibilidad: {{ (getMedicalAnalysis(result)?.model_validation?.sensitivity * 100).toFixed(1) }}%</div>
-                <div>Especificidad: {{ (getMedicalAnalysis(result)?.model_validation?.specificity * 100).toFixed(1) }}%</div>
-              </div>
-            </div>
-                
-                <v-progress-linear
-                  :model-value="getInfectionProbability(result.pcosProbability)"
-                  :color="getProbabilityColor(result.pcosProbability)"
-                  height="8"
-                  rounded
-                  class="mb-3"
-                  bg-color="grey-lighten-3"
-                />
-                
-                <!-- Etiqueta del progress bar -->
-                <div class="d-flex justify-space-between align-center mb-2">
-                  <span class="text-caption text-medium-emphasis">
-                    Probabilidad de Infección: {{ result.pcosProbability.toFixed(1) }}%
-                  </span>
-                  <span class="text-caption text-medium-emphasis">
-                    Clasificación: {{ getClassification(result) }}
-                  </span>
-                </div>
-                
-                <div class="d-flex justify-space-between align-center">
-                  <span 
-                    class="text-body-2 font-weight-medium"
-                    :class="getProbabilityTextColor(result.pcosProbability)"
-                  >
-                    {{ getRiskLevel(result.pcosProbability) }}
-                  </span>
-                  <div class="d-flex align-center">
-                    <v-btn
-                      color="primary"
-                      variant="text"
-                      size="small"
-                      class="text-none me-2"
-                      @click="showDetails(result)"
-                    >
-                      Ver Detalles
-                    </v-btn>
-                    <v-btn
-                      color="grey-darken-1"
-                      variant="text"
-                      size="small"
-                      icon="mdi-download"
-                      @click="downloadReport(result)"
-                    />
-                  </div>
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
-
           <!-- Summary Statistics -->
-          <v-row class="mt-8">
+          <v-row class="mb-8">
             <!-- Análisis Completados -->
             <v-col cols="12" md="4">
               <v-card class="summary-card text-center pa-8" elevation="1" rounded="lg" color="blue-grey-lighten-5">
@@ -190,7 +36,7 @@
                   {{ completedCount }}
                 </div>
                 <div class="summary-label text-body-2 text-grey-darken-2">
-                  Análisis completados
+                  Imágenes analizadas
                 </div>
               </v-card>
             </v-col>
@@ -202,7 +48,7 @@
                   {{ highRiskCount }}
                 </div>
                 <div class="summary-label text-body-2 text-grey-darken-2">
-                  Alto riesgo PCOS
+                  Riesgo de SOP
                 </div>
               </v-card>
             </v-col>
@@ -214,11 +60,145 @@
                   {{ lowRiskCount }}
                 </div>
                 <div class="summary-label text-body-2 text-grey-darken-2">
-                  Bajo riesgo PCOS
+                  Sin riesgo de SOP
                 </div>
               </v-card>
             </v-col>
           </v-row>
+
+          <!-- Individual Result Cards -->
+          <v-row class="mb-4">
+            <v-col 
+              v-for="result in allResults" 
+              :key="result.id" 
+              cols="12" 
+              md="6" 
+              lg="4"
+              class="mb-4"
+            >
+              <v-card 
+                class="result-card h-100"
+                elevation="2"
+                rounded="lg"
+                style="max-width: 100%;"
+              >
+                <v-card-text class="pa-6">
+                  <!-- Image Name with Status -->
+                  <div class="d-flex align-center justify-space-between mb-2">
+                    <div>
+                      <div class="text-body-1 font-weight-medium text-grey-darken-4">
+                        {{ getImageName(result.imageId) }}
+                      </div>
+                      <!-- Información adicional del archivo -->
+                      <div class="text-caption text-medium-emphasis mt-1">
+                        {{ formatFileSize(getImageById(result.imageId)?.size || 0) }} • 
+                        {{ getImageDimensions(result.imageId) }} •
+                        Procesado {{ formatRelativeTime(result.analyzedAt) }}
+                      </div>
+                      <div v-if="result.status === 'completed'" class="text-caption text-success font-weight-medium mt-1">
+                        <v-icon size="14" color="success" class="me-1">mdi-check-circle</v-icon>
+                        Completado
+                      </div>
+                    </div>
+                    <div v-if="result.status === 'completed'" class="d-flex align-center">
+                      <v-chip 
+                        :color="result.pcosProbability > 70 ? 'error' : result.pcosProbability > 30 ? 'warning' : 'success'"
+                        size="large" 
+                        variant="tonal"
+                        class="font-bold"
+                      >
+                        {{ getClassification(result) }}
+                      </v-chip>
+                    </div>
+                    <div v-else-if="result.status === 'processing'" class="d-flex align-center">
+                      <v-progress-circular
+                        indeterminate
+                        color="orange"
+                        size="16"
+                        width="2"
+                        class="me-2"
+                      />
+                      <span class="text-caption text-orange font-weight-medium">
+                      Procesando...
+                    </span>
+                    </div>
+                  </div>
+
+                  <!-- Divisor visual -->
+                  <v-divider class="my-4"></v-divider>
+
+                  <div>
+                    <v-row class="mb-4 justify-center">
+                <v-col cols="auto" class="mx-4">
+                  <div class="text-center">
+                    <v-progress-circular
+                      :model-value="getInfectionProbability(result.pcosProbability)"
+                      :color="getProbabilityColor(result.pcosProbability)"
+                      size="115"
+                      width="8"
+                    >
+                      <div class="text-center">
+                        <span class="text-h6 font-weight-bold d-block">
+                          {{ getInfectionProbability(result.pcosProbability).toFixed(1) }}%
+                        </span>
+                        <span class="text-caption text-grey-darken-1 font-weight-medium">
+                          {{ getRiskLevel(result.pcosProbability) }}
+                        </span>
+                      </div>
+                    </v-progress-circular>
+                    <p class="text-md font-medium mt-2">Probabilidad de Infección</p>
+                  </div>
+                </v-col>
+                <v-col cols="auto" class="mx-4">
+                  <div class="text-center">
+                    <v-progress-circular
+                      :model-value="result.confidence"
+                      :color="getConfidenceColor(result.confidence)"
+                      size="115"
+                      width="8"
+                    >
+                      <div class="text-center">
+                        <span class="text-h6 font-weight-bold d-block">
+                          {{ result.confidence.toFixed(1) }}%
+                        </span>
+                        <span class="text-caption text-grey-darken-1 font-medium">
+                          {{ getConfidenceLevel(result.confidence) }}
+                        </span>
+                      </div>
+                    </v-progress-circular>
+                    <p class="text-md font-medium mt-2">Confianza Clínica</p>
+                  </div>
+                </v-col>
+              </v-row>
+                  </div>
+
+                  <!-- Action Buttons (only for completed) -->
+                  <div v-if="result.status === 'completed'" class="mt-4">
+                    <div class="d-flex justify-end align-center">
+                      <!-- <v-btn
+                        color="primary"
+                        variant="text"
+                        size="small"
+                        class="text-none me-2"
+                        @click="showDetails(result)"
+                      >
+                        Ver Detalles
+                      </v-btn> -->
+                      <v-btn
+                        color="grey-darken-1"
+                        variant="text"
+                        size="medium"
+                        icon="mdi-download"
+                        @click="downloadReport(result)"
+                      />
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+
+
         </div>
 
         <!-- No Results -->
@@ -264,48 +244,7 @@
             </p>
           </div>
 
-          <v-row class="mb-4">
-            <v-col cols="6">
-              <div class="text-center">
-                <v-progress-circular
-                  :model-value="getInfectionProbability(selectedResult.pcosProbability)"
-                  :color="getProbabilityColor(selectedResult.pcosProbability)"
-                  size="80"
-                  width="8"
-                >
-                  <span class="text-h6 font-weight-bold">
-                    {{ getInfectionProbability(selectedResult.pcosProbability).toFixed(0) }}%
-                  </span>
-                </v-progress-circular>
-                <p class="text-caption mt-2">Probabilidad de Infección</p>
-              </div>
-            </v-col>
-            <v-col cols="6">
-              <div class="text-center">
-                <v-progress-circular
-                  :model-value="selectedResult.confidence"
-                  :color="getConfidenceColor(selectedResult.confidence)"
-                  size="80"
-                  width="8"
-                >
-                  <span class="text-h6 font-weight-bold">
-                    {{ selectedResult.confidence.toFixed(1) }}%
-                  </span>
-                </v-progress-circular>
-                <p class="text-caption mt-2">
-                  Confianza del Modelo
-                  <v-chip 
-                    :color="getConfidenceColor(selectedResult.confidence)" 
-                    size="x-small" 
-                    variant="flat"
-                    class="ml-2"
-                  >
-                    {{ getConfidenceLevel(selectedResult.confidence) }}
-                  </v-chip>
-                </p>
-              </div>
-            </v-col>
-          </v-row>
+          
         </v-card-text>
 
         <v-card-actions>
@@ -351,21 +290,44 @@ const completedCount = computed(() =>
 )
 
 const highRiskCount = computed(() => 
-  imagesStore.completedAnalyses.filter(result => result.pcosProbability > 70).length // ✅ Corregido: > 70 para alto riesgo (infectado)
+  imagesStore.completedAnalyses.filter(result => result.pcosProbability > 30).length // ✅ Corregido: > 70 para alto riesgo (infectado)
 )
 
 const lowRiskCount = computed(() => 
-  imagesStore.completedAnalyses.filter(result => result.pcosProbability <= 70).length // ✅ Corregido: <= 70 para bajo riesgo (no infectado)
+  imagesStore.completedAnalyses.filter(result => result.pcosProbability <= 30).length // ✅ Corregido: <= 70 para bajo riesgo (no infectado)
 )
 
 // Helper functions
 function getImageName(imageId: string): string {
+  // Primero buscar en images
   const image = imagesStore.images.find(img => img.id === imageId)
-  return image?.name || 'Imagen desconocida'
+  if (image) {
+    return image.name
+  }
+  
+  // Si no está en images, buscar en analysisResults
+  const result = imagesStore.analysisResults.find(r => r.imageId === imageId)
+  if (result && (result as any).imageInfo) {
+    return (result as any).imageInfo.name
+  }
+  
+  return 'Imagen desconocida'
 }
 
 function getImageById(imageId: string) {
-  return imagesStore.images.find(img => img.id === imageId)
+  // Primero buscar en images
+  const image = imagesStore.images.find(img => img.id === imageId)
+  if (image) {
+    return image
+  }
+  
+  // Si no está en images, buscar en analysisResults
+  const result = imagesStore.analysisResults.find(r => r.imageId === imageId)
+  if (result && (result as any).imageInfo) {
+    return (result as any).imageInfo
+  }
+  
+  return null
 }
 
 function getProbabilityColor(probability: number): string {
@@ -381,9 +343,9 @@ function getProbabilityTextColor(probability: number): string {
 }
 
 function getRiskLevel(probability: number): string {
-  if (probability > 70) return 'Alto riesgo PCOS'   // ✅ >70 para alto riesgo
-  if (probability > 30) return 'Riesgo moderado PCOS'
-  return 'Bajo riesgo PCOS'  // ✅ <=30 para bajo riesgo
+  if (probability > 70) return 'Alto'   // ✅ >70 para alto riesgo
+  if (probability > 30) return 'Media'
+  return 'Bajo'  // ✅ <=30 para bajo riesgo
 }
 
 // ✅ Función corregida: pcosProbability ya ES la probabilidad de infección
@@ -408,107 +370,200 @@ function showDetails(result: AnalysisResult): void {
 
 async function downloadReport(result: AnalysisResult): Promise<void> {
   try {
-    console.log('📄 Iniciando descarga de reporte para:', result.imageId)
+    console.log('📄 Iniciando generación de PDF para:', result.imageId)
     
-    // Obtener información de la imagen
-    const imageInfo = getImageById(result.imageId)
+    // Importar jsPDF dinámicamente
+    const { default: jsPDF } = await import('jspdf')
+    const { default: autoTable } = await import('jspdf-autotable')
     
-                    // Crear reporte usando los datos que ya tenemos
-                const medicalAnalysis = getMedicalAnalysis(result)
-                
-                const reportData = {
-                  generatedAt: new Date().toISOString(),
-                  reportTitle: 'Reporte de Análisis PCOS',
-                  imageInfo: {
-                    id: result.imageId,
-                    name: imageInfo?.name || 'Imagen sin nombre',
-                    size: imageInfo?.size || 0,
-                    type: imageInfo?.type || 'unknown',
-                    dimensions: getImageDimensions(result.imageId),
-                    uploadedAt: imageInfo?.uploadedAt?.toISOString() || new Date().toISOString()
-                  },
-                  analysisResults: {
-                    id: result.id,
-                    pcosProbability: result.pcosProbability,
-                    confidence: result.confidence,
-                    classification: getClassification(result),
-                    riskLevel: result.pcosProbability > 70 ? 'Alto Riesgo' : 'Bajo Riesgo', // ✅ Corregido: > 70
-                    analyzedAt: result.analyzedAt.toISOString(),
-                    status: result.status
-                  },
-                  medicalAnalysis: medicalAnalysis ? {
-                    diagnosis: medicalAnalysis.diagnosis,
-                    confidenceScore: medicalAnalysis.confidence_score,
-                    requiresSpecialistReview: medicalAnalysis.requires_specialist_review,
-                    clinicalRecommendations: medicalAnalysis.clinical_recommendations,
-                    modelValidation: {
-                      threshold: medicalAnalysis.model_validation?.threshold,
-                      sensitivity: medicalAnalysis.model_validation?.sensitivity,
-                      specificity: medicalAnalysis.model_validation?.specificity,
-                      auc: medicalAnalysis.model_validation?.auc,
-                      modelVersion: medicalAnalysis.model_validation?.model_version
-                    },
-                    clinicalInterpretation: {
-                      confidenceLevel: medicalAnalysis.clinical_interpretation?.confidence_level,
-                      clinicalAction: medicalAnalysis.clinical_interpretation?.clinical_action,
-                      reliability: medicalAnalysis.clinical_interpretation?.reliability
-                    }
-                  } : null,
-                  summary: {
-                    probability: `${result.pcosProbability.toFixed(1)}%`,
-                    confidence: `${result.confidence.toFixed(1)}%`,
-                    confidenceLevel: getConfidenceLevel(result.confidence),
-                    riskAssessment: result.pcosProbability > 70 ? 'Se requiere seguimiento médico' : 'Resultado dentro de parámetros normales' // ✅ Corregido: > 70
-                  },
-                  metadata: {
-                    generatedBy: 'Sistema de Diagnóstico PCOS por IA',
-                    version: '1.0.0',
-                    processingTime: `Procesado ${formatRelativeTime(result.analyzedAt)}`
-                  }
-                }
+    // Obtener información de la imagen (desde analysisResults o desde images)
+    let imageInfo = getImageById(result.imageId)
+    const medicalAnalysis = getMedicalAnalysis(result)
     
-    // Convertir a JSON para descarga
-    const jsonBlob = new Blob(
-      [JSON.stringify(reportData, null, 2)], 
-      { type: 'application/json' }
-    )
+    // Si no hay imageInfo en images (porque se limpió), usar la guardada en analysisResults
+    if (!imageInfo && (result as any).imageInfo) {
+      imageInfo = (result as any).imageInfo
+    }
     
-    // Crear enlace de descarga
-    const url = window.URL.createObjectURL(jsonBlob)
-    const link = document.createElement('a')
-    link.href = url
+    // Obtener la URL de la imagen para incluirla en el PDF
+    let imageUrl = imageInfo?.url || ''
+    if (!imageUrl && (result as any).imageInfo?.url) {
+      imageUrl = (result as any).imageInfo.url
+    }
     
-    // Nombre del archivo con timestamp
+    // Crear nuevo documento PDF
+    const doc = new jsPDF()
+    
+    // Configurar estilos
+    const titleFontSize = 20
+    const subtitleFontSize = 14
+    const normalFontSize = 12
+    const smallFontSize = 10
+    
+    // Título principal
+    doc.setFontSize(titleFontSize)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Reporte de Análisis Médico', 105, 25, { align: 'center' })
+    
+    // Línea divisoria
+    doc.setDrawColor(200, 200, 200)
+    doc.line(20, 35, 190, 35)
+    
+    // Información básica
+    doc.setFontSize(subtitleFontSize)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Información del Análisis', 20, 50)
+    
+    doc.setFontSize(normalFontSize)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Nombre: ${imageInfo?.name || 'Imagen sin nombre'}`, 20, 65)
+    doc.text(`Fecha de Análisis: ${formatDate(result.analyzedAt)}`, 20, 75)
+    doc.text(`Tamaño: ${formatFileSize(imageInfo?.size || 0)}`, 20, 85)
+    
+    // Agregar la imagen al PDF si está disponible
+    if (imageUrl) {
+      try {
+        // Cargar la imagen
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = reject
+          img.src = imageUrl
+        })
+        
+        // Calcular dimensiones para la imagen (máximo 80px de alto)
+        const maxHeight = 80
+        const maxWidth = 120
+        let imgWidth = img.width
+        let imgHeight = img.height
+        
+        // Redimensionar manteniendo proporción
+        if (imgHeight > maxHeight) {
+          const ratio = maxHeight / imgHeight
+          imgHeight = maxHeight
+          imgWidth = imgWidth * ratio
+        }
+        
+        if (imgWidth > maxWidth) {
+          const ratio = maxWidth / imgWidth
+          imgWidth = maxWidth
+          imgHeight = imgHeight * ratio
+        }
+        
+        // Crear canvas para convertir la imagen
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        canvas.width = imgWidth
+        canvas.height = imgHeight
+        
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, imgWidth, imgHeight)
+          const imageData = canvas.toDataURL('image/jpeg', 0.8)
+          
+          // Agregar imagen al PDF
+          doc.addImage(imageData, 'JPEG', 20, 95, imgWidth, imgHeight)
+          console.log('🖼️ Imagen agregada al PDF exitosamente')
+        }
+      } catch (error) {
+        console.warn('⚠️ No se pudo agregar la imagen al PDF:', error)
+      }
+    }
+    
+    // Resultados clínicos con tabla
+    doc.setFontSize(subtitleFontSize)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Resultados Clínicos', 20, 185)
+    
+    // Tabla de resultados clínicos
+    autoTable(doc, {
+      startY: 195,
+      head: [['Métrica', 'Valor', 'Estado']],
+      body: [
+        ['Diagnóstico', getClassification(result), result.pcosProbability > 70 ? 'Alto Riesgo' : result.pcosProbability > 30 ? 'Medio Riesgo' : 'Bajo Riesgo'],
+        ['Probabilidad PCOS', `${result.pcosProbability.toFixed(1)}%`, getRiskLevel(result.pcosProbability)],
+        ['Confianza del Modelo', `${result.confidence.toFixed(1)}%`, getConfidenceLevel(result.confidence)]
+      ],
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      styles: { fontSize: 10 }
+    })
+    
+    // Requiere revisión especialista
+    if (medicalAnalysis?.requires_specialist_review) {
+      doc.setFontSize(normalFontSize)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(255, 0, 0)
+      doc.text('⚠️ REVISIÓN ESPECIALISTA REQUERIDA', 20, 250)
+      doc.setTextColor(0, 0, 0)
+    }
+    
+    // Recomendaciones clínicas
+    if (medicalAnalysis?.clinical_recommendations) {
+      doc.setFontSize(subtitleFontSize)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Recomendaciones Clínicas', 20, 270)
+      
+      doc.setFontSize(normalFontSize)
+      doc.setFont('helvetica', 'normal')
+      let yPos = 285
+      medicalAnalysis.clinical_recommendations.forEach((rec: string, index: number) => {
+        if (yPos < 270) { // Evitar salirse de la página
+          doc.text(`${index + 1}. ${rec}`, 20, yPos)
+          yPos += 10
+        }
+      })
+    }
+    
+    // Validación del modelo
+    if (medicalAnalysis?.model_validation) {
+      doc.setFontSize(subtitleFontSize)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Validación del Modelo', 20, 310)
+      
+      doc.setFontSize(normalFontSize)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Versión: ${medicalAnalysis.model_validation.model_version || 'N/A'}`, 20, 325)
+      doc.text(`Sensibilidad: ${(medicalAnalysis.model_validation.sensitivity * 100).toFixed(1)}%`, 20, 335)
+      doc.text(`Especificidad: ${(medicalAnalysis.model_validation.specificity * 100).toFixed(1)}%`, 20, 345)
+    }
+    
+    // Pie de página
+    const pageCount = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(smallFontSize)
+      doc.setFont('helvetica', 'italic')
+      doc.text(`Generado por Sistema de Diagnóstico SOP por IA - Página ${i} de ${pageCount}`, 105, 280, { align: 'center' })
+      doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')} - Hora: ${new Date().toLocaleTimeString('es-ES')}`, 105, 285, { align: 'center' })
+    }
+    
+    // Generar nombre del archivo
     const timestamp = new Date().toISOString().split('T')[0]
-    const imageName = getImageName(result.imageId).replace(/\.[^/.]+$/, '') // Quitar extensión
-    link.download = `reporte_analisis_${imageName}_${timestamp}.json`
+    const imageName = getImageName(result.imageId).replace(/\.[^/.]+$/, '')
+    const fileName = `reporte_medico_${imageName}_${timestamp}.pdf`
     
-    // Simular click para descargar
-    document.body.appendChild(link)
-    link.click()
+    // Descargar PDF
+    doc.save(fileName)
     
-    // Limpiar
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    
-    console.log('✅ Reporte descargado exitosamente usando datos locales')
+    console.log('✅ PDF generado exitosamente:', fileName)
     
   } catch (error) {
-    console.error('❌ Error al descargar reporte:', error)
-    alert('Error al generar el reporte. Por favor, inténtalo nuevamente.')
+    console.error('❌ Error al generar PDF:', error)
+    alert('Error al generar el reporte PDF. Por favor, inténtalo nuevamente.')
   }
 }
 
 // Funciones auxiliares para mostrar datos adicionales de la API
 function getConfidenceColor(confidence: number): string {
   if (confidence >= 90) return 'success'
-  if (confidence >= 70) return 'warning'
+  if (confidence >= 65) return 'warning'
   return 'error'
 }
 
 function getConfidenceLevel(confidence: number): string {
   if (confidence >= 90) return 'Alta'
-  if (confidence >= 70) return 'Media'
+  if (confidence >= 65) return 'Media'
   return 'Baja'
 }
 

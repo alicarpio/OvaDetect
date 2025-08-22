@@ -438,7 +438,7 @@ export const useImagesStore = defineStore('images', () => {
             if (record.medical_analysis) {
               console.log(`🧠 Procesando medical_analysis para ${imageFile.name}:`, record.medical_analysis)
               
-              const analysisResult: AnalysisResult = {
+              const analysisResult: any = {
                 id: record.medical_analysis.id?.toString() || crypto.randomUUID(),
                 imageId: imageFile.id,
                 pcosProbability: record.medical_analysis.pcos_probability * 100, // Convertir a porcentaje
@@ -447,7 +447,17 @@ export const useImagesStore = defineStore('images', () => {
                 recommendations: record.medical_analysis.clinical_recommendations,
                 analyzedAt: new Date(),
                 status: 'completed',
-                riskLevel: record.medical_analysis.pcos_probability > 0.5 ? 'alto' : 'bajo'
+                riskLevel: record.medical_analysis.pcos_probability > 0.5 ? 'alto' : 'bajo',
+                // Guardar información de la imagen en el resultado
+                imageInfo: {
+                  name: imageFile.name,
+                  size: imageFile.size,
+                  type: imageFile.type,
+                  uploadedAt: imageFile.uploadedAt,
+                  url: imageFile.url,
+                  width: imageFile.width,
+                  height: imageFile.height
+                }
               }
               
               console.log(`📊 Resultado de análisis creado:`, analysisResult)
@@ -459,7 +469,7 @@ export const useImagesStore = defineStore('images', () => {
             } else if (record.analysis) {
               console.log(`🧠 Procesando analysis legacy para ${imageFile.name}:`, record.analysis)
               
-              const analysisResult: AnalysisResult = {
+              const analysisResult: any = {
                 id: record.analysis.id?.toString() || crypto.randomUUID(),
                 imageId: imageFile.id,
                 pcosProbability: record.analysis.pcos_probability * 100, // Convertir a porcentaje
@@ -472,7 +482,17 @@ export const useImagesStore = defineStore('images', () => {
                   : ['Consultar con especialista para evaluación completa'],
                 analyzedAt: new Date(),
                 status: 'completed',
-                riskLevel: record.analysis.pcos_probability > 0.5 ? 'alto' : 'bajo'
+                riskLevel: record.analysis.pcos_probability > 0.5 ? 'alto' : 'bajo',
+                // Guardar información de la imagen en el resultado
+                imageInfo: {
+                  name: imageFile.name,
+                  size: imageFile.size,
+                  type: imageFile.type,
+                  uploadedAt: imageFile.uploadedAt,
+                  url: imageFile.url,
+                  width: imageFile.width,
+                  height: imageFile.height
+                }
               }
               
               console.log(`📊 Resultado de análisis legacy creado:`, analysisResult)
@@ -578,6 +598,60 @@ export const useImagesStore = defineStore('images', () => {
     isAnalyzing.value = false
   }
 
+  function clearUploadedImages() {
+    console.log('🧹 Iniciando limpieza de imágenes del upload...')
+    console.log('📊 Estado actual del store:')
+    console.log('   - Total de imágenes:', images.value.length)
+    console.log('   - Imágenes por estado:', {
+      uploaded: images.value.filter(img => img.status === 'uploaded').length,
+      uploading: images.value.filter(img => img.status === 'uploading').length,
+      error: images.value.filter(img => img.status === 'error').length
+    })
+    
+    // Antes de limpiar, guardar información esencial en analysisResults
+    const imagesToRemove = images.value.filter(img => img.status !== 'error')
+    
+    console.log('🗑️ Imágenes a remover:', imagesToRemove.map(img => ({
+      id: img.id,
+      name: img.name,
+      status: img.status
+    })))
+    
+    // Guardar información esencial en analysisResults antes de limpiar
+    imagesToRemove.forEach(image => {
+      const result = analysisResults.value.find(r => r.imageId === image.id)
+      if (result) {
+        // Agregar información de la imagen al resultado del análisis
+        (result as any).imageInfo = {
+          name: image.name,
+          size: image.size,
+          type: image.type,
+          uploadedAt: image.uploadedAt,
+          url: image.url // Guardar también la URL para el PDF
+        }
+        console.log(`💾 Información de imagen guardada en resultado: ${image.name}`)
+      }
+    })
+    
+    // Limpiar URLs de objetos para evitar memory leaks
+    imagesToRemove.forEach(image => {
+      if (image.url.startsWith('blob:')) {
+        URL.revokeObjectURL(image.url)
+        console.log(`🔗 URL de blob limpiada para: ${image.name}`)
+      }
+    })
+    
+    // Remover todas las imágenes del upload (mantener solo errores)
+    const beforeCount = images.value.length
+    images.value = images.value.filter(img => img.status === 'error')
+    const afterCount = images.value.length
+    
+    console.log(`🧹 Limpieza completada:`)
+    console.log(`   - Antes: ${beforeCount} imágenes`)
+    console.log(`   - Después: ${afterCount} imágenes`)
+    console.log(`   - Removidas: ${imagesToRemove.length} imágenes`)
+  }
+
   return {
     // State
     images,
@@ -605,6 +679,7 @@ export const useImagesStore = defineStore('images', () => {
     analyzeImage,
     refreshAnalysisResult,
     clearResults,
-    clearAllData
+    clearAllData,
+    clearUploadedImages
   }
 })
